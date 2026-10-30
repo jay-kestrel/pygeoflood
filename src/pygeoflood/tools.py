@@ -865,39 +865,40 @@ def get_skeleton(
     return skeletonArray
 
 
-@jit(nopython=True, parallel=True)
 def get_fmm_points(
     basins,
     outlets,
     basin_elements,
     area_threshold,
 ):
-    # Race-free rewrite: each prange worker writes only its own slot in the
-    # selection flags, and the selected outlets are folded serially in fixed
-    # (ascending-label) order afterwards, so the output is bitwise identical
-    # for any NUMBA_NUM_THREADS. The original appended to shared fmmX/fmmY
-    # lists from inside prange — a data race that could lose or duplicate
-    # entries and vary the output from run to run.
-    basins_ravel = basins.ravel()
+    """Pick fast-marching seed points for outlets of qualifying basins.
+
+    A basin qualifies when its cell count exceeds ``basin_elements`` and its
+    share of the raster exceeds ``area_threshold`` percent (both strict).
+    Returns a (2, n_selected) array of (row, col) coordinates in basin-label
+    order, or a (2, 0) array when no basin qualifies.
+    """
+    # Pure NumPy selection in fixed label order. The previous numba prange
+    # kernel appended to Python lists from parallel workers: the appends
+    # raced, outputs were nondeterministic, and the process crashed with
+    # SIGSEGV or heap corruption at ambient thread counts (review
+    # art_SjgX1Jzb F3).
     n_pixels = basins.size
-    n_labels = outlets.shape[1]
-    selected = np.zeros(n_labels, dtype=np.bool_)
-    for label in prange(n_labels):
-        numelements = np.sum(basins_ravel == (label + 1))
-        percentBasinArea = numelements * 100.00001 / n_pixels
-        if (percentBasinArea > area_threshold) and (
-            numelements > basin_elements
-        ):
-            selected[label] = True
-
-    fmmX = []
-    fmmY = []
-    for label in range(n_labels):
-        if selected[label]:
-            fmmX.append(outlets[1, label])
-            fmmY.append(outlets[0, label])
-
-    return np.array([fmmY, fmmX])
+    labels = np.arange(1, outlets.shape[1] + 1)
+    # np.unique handles float rasters with NaN nodata: a NaN basin value
+    # equals no label, so it is never counted for any outlet.
+    unique_basins, basin_counts = np.unique(basins.ravel(), return_counts=True)
+    if unique_basins.size == 0:
+        return np.empty((2, 0))
+    slots = np.searchsorted(unique_basins, labels)
+    clipped = np.minimum(slots, unique_basins.size - 1)
+    matched = unique_basins[clipped] == labels
+    numelements = np.where(matched, basin_counts[clipped], 0)
+    percentBasinArea = numelements * 100.00001 / n_pixels
+    selected = (percentBasinArea > area_threshold) & (
+        numelements > basin_elements
+    )
+    return np.array([outlets[0, selected], outlets[1, selected]])
 
 
 def get_ram_usage() -> str:
