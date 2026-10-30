@@ -1,0 +1,32 @@
+name: benchmarks
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  schema-and-crop-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install package with bench extras
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[bench]"
+
+      - name: Schema unit tests
+        run: pytest benchmarks/tests/ -v
+
+      - name: Crop profile — cold + 2 warm (variance evidence)
+        run: |
+          python -m benchmarks --profile crop --warm-runs 2 \
+            --outdir benchmarks/results/ci-crop
+          cat benchmarks/results/ci-crop/SUMMARY.md >> "$GITHUB_STEP_SUMMARY"
