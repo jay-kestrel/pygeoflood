@@ -972,6 +972,9 @@ def get_channel_heads(
     print("Locating skeleton end points")
     structure = np.ones((3, 3))
     labeled, num_labels = ndimage.label(combined_skeleton, structure=structure)
+    if num_labels == 0:
+        # empty skeleton: no connected components, no channel heads to find
+        return None, None
     print("Counting the number of elements of each connected component")
     lbls = np.arange(1, num_labels + 1)
     label_counts = ndimage.labeled_comprehension(
@@ -998,7 +1001,14 @@ def get_channel_heads(
     #     )
     # Elements smaller than count_threshold are not considered in the
     # channel_heads detection
-    count_threshold = bin_edges[2]
+    if num_bins < 2:
+        # bin_edges[2] below needs num_bins >= 2, i.e. at least 4 connected
+        # components; with 1-3 components the histogram cannot provide that
+        # index, so fall back to the median component size and keep a
+        # defined threshold for small tiles and sparse skeletons
+        count_threshold = float(np.median(sorted_label_counts))
+    else:
+        count_threshold = bin_edges[2]
     print(f"Skeleton region size threshold: {str(count_threshold)}")
     # Scan the array for finding the channel heads
     print("Continuing to locate skeleton endpoints")
@@ -1061,15 +1071,16 @@ def jit_channel_heads(
                 v1 = v & (search_geodesic_box > geodesic_distance[i, j])
 
                 if not np.any(v1):
+                    if ch_count >= max_channel_heads:
+                        # stop BEFORE writing past the preallocated buffer
+                        # (numba performs no bounds checking) and warn once
+                        print(
+                            f"Warning: max_channel_heads ({max_channel_heads}) "
+                            "exceeded. Consider increasing max_channel_heads"
+                        )
+                        return channel_heads[:ch_count]
                     channel_heads[ch_count] = [i, j]
                     ch_count += 1
-                # Trim to the actual number of channel heads found
-                # warn if max_channel_heads was exceeded
-                if ch_count > max_channel_heads:
-                    print(
-                        f"Warning: max_channel_heads ({max_channel_heads}) exceeded. "
-                        "Consider increasing max_channel_heads"
-                    )
     return channel_heads[:ch_count]
 
 
