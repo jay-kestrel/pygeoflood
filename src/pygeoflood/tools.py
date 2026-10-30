@@ -1705,7 +1705,7 @@ def catchhydrogeo(
     src_df["HydraulicRadius_m"] = src_df["HydraulicRadius_m"].fillna(0)
     src_df["Discharge_cms"] = (
         src_df["WetArea_m2"]
-        * np.power(src_df["HydraulicRadius_m"], 2 / 3)
+        * np.power(src_df["HydraulicRadius_m"].astype(np.float64), 2 / 3)
         * np.sqrt(src_df["Slope"])
         / src_df["Roughness"]
     )
