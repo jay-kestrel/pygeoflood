@@ -594,11 +594,8 @@ def simple_gaussian_smoothing(
         -(xv**2 + yv**2) / (2 * diffusionSigmaSquared)
     )  # 2D Gaussian
     gaussianFilter = gaussianFilter / np.sum(gaussianFilter)  # Normalize
-    print(inputDemArray[0, 0:halfKernelWidth])
     xL = np.nanmean(inputDemArray[:, 0:halfKernelWidth], axis=1)
-    print(f"xL: {xL}")
     xR = np.nanmean(inputDemArray[:, Nx - halfKernelWidth : Nx], axis=1)
-    print(f"xR: {xR}")
     part1T = np.vstack((xL, xL))
     part1 = part1T.T
     part2T = np.vstack((xR, xR))
