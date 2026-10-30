@@ -50,6 +50,11 @@ jobs:
         run: |
           "$WBT_PATH/whitebox_tools" --version | grep "v2.4.0"
 
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.85.1 --profile minimal
+          rustup default 1.85.1
+
       - name: Install pygeoflood with pinned environment
         run: |
           python -m pip install --upgrade pip
