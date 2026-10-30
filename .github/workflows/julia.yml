@@ -1,0 +1,106 @@
+name: julia-kernels
+
+# Julia kernel-track CI. Org policy rejects external GitHub Actions, so this
+# workflow has NO `uses:` steps: plain-script setup with a pinned,
+# sha256-verified Julia tarball, the golden corpus regenerated from pinned
+# inputs (same corpus the python equivalence suite gates on), fixture
+# extraction, unit tests, and the golden equivalence gates.
+#
+# The pinned Julia release: 1.10.9 linux x86_64,
+# sha256 5a2d2c5224594b683c97e7304cb72407fbcf0be4a0187789cba1a2f73f0cbf09
+# (verified against two independent CDN downloads and the release size
+# 174,026,228 bytes recorded in JuliaLang's versions manifest).
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "julia/**"
+      - "tests/golden/**"
+      - "tests/test_data/**"
+      - "src/pygeoflood/**"
+      - "rust/**"
+      - ".github/workflows/julia.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "julia/**"
+      - "tests/golden/**"
+      - "tests/test_data/**"
+      - "src/pygeoflood/**"
+      - "rust/**"
+      - ".github/workflows/julia.yml"
+  workflow_dispatch:
+
+jobs:
+  julia:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      NUMBA_NUM_THREADS: "1"
+      JULIA_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+      WBT_PATH: /opt/wbt/WhiteboxTools_linux_amd64/WBT
+    steps:
+      - name: Check out repository
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          git clone "https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }}.git" "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" checkout --detach "${{ github.sha }}"
+          git -C "$GITHUB_WORKSPACE" log -1 --oneline
+
+      - name: Patch the PyO3 0.29 API removal in the rust extension
+        # The pinned rust build no longer compiles as-is: pyo3 0.29.3 removed
+        # Python::allow_threads (renamed to detach). This applies the same
+        # one-line fix used locally to build the extension; kept at script
+        # level so the julia track's commits stay additive.
+        run: |
+          sed -i 's/py\.allow_threads(move || cells::process_cells(&input))/py.detach(move || cells::process_cells(\&input))/' rust/src/lib.rs
+          grep -n "py.detach" rust/src/lib.rs || echo "rust extension already patched"
+
+      - name: Install pinned python environment
+        run: |
+          python3 --version
+          python3 -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -c tests/golden/requirements-pins.txt -e . pytest
+
+      - name: Download and verify WhiteboxTools v2.4.0
+        run: |
+          mkdir -p /opt/wbt
+          curl -sL --retry 3 \
+            https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_amd64.zip \
+            -o /tmp/wbt.zip
+          unzip -q /tmp/wbt.zip -d /opt/wbt
+          "$WBT_PATH/whitebox_tools" --version | grep "v2.4.0"
+
+      - name: Regenerate the golden corpus and run the python gates
+        run: |
+          .venv/bin/pytest tests/test_golden_equivalence.py -v
+
+      - name: Extract Julia kernel fixtures from the corpus
+        run: |
+          .venv/bin/python julia/tools/dump_kernel_fixtures.py \
+            --corpus-dir tests/golden/data/run1 --out julia/test/fixtures
+          ls julia/test/fixtures
+
+      - name: Install Julia 1.10.9 (pinned, sha256-verified)
+        run: |
+          curl -sL --retry 3 \
+            https://julialang-s3.julialang.org/bin/linux/x64/1.10/julia-1.10.9-linux-x86_64.tar.gz \
+            -o /tmp/julia.tar.gz
+          echo "5a2d2c5224594b683c97e7304cb72407fbcf0be4a0187789cba1a2f73f0cbf09  /tmp/julia.tar.gz" | sha256sum -c -
+          mkdir -p /opt/julia && tar -xzf /tmp/julia.tar.gz -C /opt/julia --strip-components=1
+          echo "/opt/julia/bin" >> "$GITHUB_PATH"
+          julia --version
+
+      - name: Julia unit tests
+        run: |
+          julia --project=julia -e 'using Pkg; Pkg.test()'
+
+      - name: Golden equivalence gates (Julia kernels)
+        run: |
+          julia --project=julia julia/test/equivalence_runner.jl \
+            julia/test/fixtures --report=julia-equivalence-report.json
+          cat julia-equivalence-report.json
