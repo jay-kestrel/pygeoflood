@@ -1,16 +1,22 @@
+# Mirror of pyproject.toml [project.dependencies] — keep in sync.
+# Regenerated for PG-1 finding F13: scikit-fmm and netcdf4 were missing
+# (both declared and needed: skfmm by fast_marching, netcdf4 by the .nc
+# branch of get_flood_stage), and the pathlib pin was dead (stdlib since
+# Python 3.4). shapely is imported directly by tools.py and declared in
+# pyproject.
 geopandas
-fiona
-numpy
-pandas
-rasterio
-psutil
-xarray
+ipykernel
+matplotlib
 numba
-pathlib
+numpy
+netcdf4
+pandas
+psutil>=5.9
+rasterio
+scikit-fmm
+scikit-image
 scipy
 shapely
-scikit-image
 whitebox
-
-
-
+xarray
+fiona

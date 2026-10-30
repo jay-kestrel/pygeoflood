@@ -444,6 +444,17 @@ def get_file_path(
     return file_path
 
 
+def ensure_csv_suffix(path: str | PathLike) -> str:
+    """
+    Append a ".csv" suffix to a path only when it has no suffix already.
+
+    Custom flood-stage paths may already carry the .csv extension;
+    unconditionally appending produced "my_stage.csv.csv".
+    """
+    file_path = Path(path)
+    return str(file_path) if file_path.suffix else str(file_path) + ".csv"
+
+
 def minmax_scale(array: np.ndarray) -> np.ndarray:
     """
     Min-max scale an array to have values between 0 and 1.
@@ -509,8 +520,9 @@ def get_WhiteboxTools(
         WhiteboxTools instance.
     """
     wbt = WhiteboxTools()
-    # whitebox_exe_dir = "/path/to/whitebox/bin"
-    whitebox_exe_dir = os.getenv("WBT_PATH", None)
+    if whitebox_exe_dir is None:
+        # explicit argument wins; WBT_PATH is only the fallback
+        whitebox_exe_dir = os.getenv("WBT_PATH", None)
     if whitebox_exe_dir:
         wbt.set_whitebox_dir(whitebox_exe_dir)
     wbt.set_verbose_mode(verbose)
@@ -926,7 +938,7 @@ def fast_marching(
         except IOError as e:
             print("Error in calculating skfmm travel time")
             print("Error in catchment: ", basinIndexList)
-            print("I/O error({0}): {1}".format(e.errno, e.strerror))
+            print(f"I/O error: {e}")
             # setting travel time to empty array
             travel_time = np.nan * np.zeros_like(cost_function)
             # if defaults.doPlot == 1:
@@ -935,10 +947,15 @@ def fast_marching(
             # plt.contour(speed,cmap=cm.coolwarm)
             #    raster_point_plot(phi, fmm_start_points[:,i],
             #                      'phi basin Index'+str(basinIndexList))
-        except ValueError:
-            print("Error in calculating skfmm travel time")
-            print("Error in catchment: ", basinIndexList)
-            print("That was not a valid number")
+        except ValueError as e:
+            # skfmm raises ValueError for degenerate basins (e.g. an
+            # all-zero speed field after masking leaves phi without a zero
+            # contour); falling through left travel_time unbound or still
+            # holding the previous basin's solution, silently writing
+            # wrong-basin distances downstream. Fail fast with context.
+            raise RuntimeError(
+                f"skfmm travel_time failed for basin {basinIndexList}"
+            ) from e
         geodesic_distance[maskedBasin == 1] = travel_time[maskedBasin == 1]
     geodesic_distance[maskedBasin == 1] = travel_time[maskedBasin == 1]
     geodesic_distance[geodesic_distance == np.inf] = np.nan
@@ -967,6 +984,9 @@ def get_channel_heads(
     print("Locating skeleton end points")
     structure = np.ones((3, 3))
     labeled, num_labels = ndimage.label(combined_skeleton, structure=structure)
+    if num_labels == 0:
+        # empty skeleton: no connected components, no channel heads to find
+        return None, None
     print("Counting the number of elements of each connected component")
     lbls = np.arange(1, num_labels + 1)
     label_counts = ndimage.labeled_comprehension(
@@ -993,7 +1013,14 @@ def get_channel_heads(
     #     )
     # Elements smaller than count_threshold are not considered in the
     # channel_heads detection
-    count_threshold = bin_edges[2]
+    if num_bins < 2:
+        # bin_edges[2] below needs num_bins >= 2, i.e. at least 4 connected
+        # components; with 1-3 components the histogram cannot provide that
+        # index, so fall back to the median component size and keep a
+        # defined threshold for small tiles and sparse skeletons
+        count_threshold = float(np.median(sorted_label_counts))
+    else:
+        count_threshold = bin_edges[2]
     print(f"Skeleton region size threshold: {str(count_threshold)}")
     # Scan the array for finding the channel heads
     print("Continuing to locate skeleton endpoints")
@@ -1056,15 +1083,16 @@ def jit_channel_heads(
                 v1 = v & (search_geodesic_box > geodesic_distance[i, j])
 
                 if not np.any(v1):
+                    if ch_count >= max_channel_heads:
+                        # stop BEFORE writing past the preallocated buffer
+                        # (numba performs no bounds checking) and warn once
+                        print(
+                            f"Warning: max_channel_heads ({max_channel_heads}) "
+                            "exceeded. Consider increasing max_channel_heads"
+                        )
+                        return channel_heads[:ch_count]
                     channel_heads[ch_count] = [i, j]
                     ch_count += 1
-                # Trim to the actual number of channel heads found
-                # warn if max_channel_heads was exceeded
-                if ch_count > max_channel_heads:
-                    print(
-                        f"Warning: max_channel_heads ({max_channel_heads}) exceeded. "
-                        "Consider increasing max_channel_heads"
-                    )
     return channel_heads[:ch_count]
 
 

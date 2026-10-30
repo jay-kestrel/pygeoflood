@@ -38,6 +38,7 @@ dependencies = [
     "scikit-fmm",
     "scikit-image",
     "scipy",
+    "shapely",
     "whitebox",
     "xarray",
     "fiona",

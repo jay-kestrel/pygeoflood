@@ -1,0 +1,95 @@
+name: tests
+
+# Run the two test files no existing workflow executed (PG-1 finding F12):
+# the functionality smoke suite and the process_cells parallel/serial
+# determinism regression — the latter being the only guard for the 22dfed9
+# race fix. The determinism job deliberately does NOT pin
+# NUMBA_NUM_THREADS: the test reads the ambient thread count, and pinning
+# it to 1 would reduce the parallelism check to a serial no-op.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  process-cells-determinism:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.85.1 --profile minimal
+          rustup default 1.85.1
+
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest
+
+      - name: Parallel/serial determinism at ambient thread count
+        run: pytest tests/test_process_cells_determinism.py -v
+
+  functionality-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      WBT_PATH: /opt/wbt/WhiteboxTools_linux_amd64/WBT
+      NUMBA_NUM_THREADS: "1"
+      OMP_NUM_THREADS: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Cache WhiteboxTools v2.4.0
+        id: wbt-cache
+        uses: actions/cache@v4
+        with:
+          path: /opt/wbt
+          key: wbt-v2.4.0-linux-x86_64
+
+      - name: Download WhiteboxTools v2.4.0
+        if: steps.wbt-cache.outputs.cache-hit != 'true'
+        run: |
+          mkdir -p /opt/wbt
+          curl -sL --retry 3 \
+            https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_amd64.zip \
+            -o /tmp/wbt.zip
+          unzip -q /tmp/wbt.zip -d /opt/wbt
+
+      - name: Verify pinned WhiteboxTools version
+        run: |
+          "$WBT_PATH/whitebox_tools" --version | grep "v2.4.0"
+
+      - name: Install Rust toolchain
+        run: |
+          rustup toolchain install 1.85.1 --profile minimal
+          rustup default 1.85.1
+
+      - name: Install package with pinned environment
+        run: |
+          python -m pip install --upgrade pip
+          pip install -c tests/golden/requirements-pins.txt -e . pytest
+
+      # fill_spill_merge lazily imports the mdp0023/richdem fork
+      # (pygeoflood.py:2378-2386); without it 3 of the 97 tests fail with
+      # the guard's own ImportError. setuptools<81 provides pkg_resources,
+      # which the fork's __init__ still imports and setuptools 81+ dropped.
+      - name: Install richdem fork for fill_spill_merge tests
+        run: |
+          pip install "setuptools<81"
+          pip install "richdem @ git+https://github.com/mdp0023/richdem.git@717abd7e1db0632f047ec4d57224a557d6212012#subdirectory=wrappers/pyrichdem"
+
+      - name: Functionality smoke suite
+        run: pytest tests/test_functionality.py -v

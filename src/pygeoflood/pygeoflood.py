@@ -8,6 +8,7 @@ import rasterio as rio
 import sys
 import os
 from . import tools as t
+from .wrapper import run_wbt
 from os import PathLike
 from pathlib import Path
 from rasterio.features import rasterize, shapes
@@ -494,7 +495,9 @@ class pyGeoFlood(object):
         # Set default value for fix_flats if not provided
         if "fix_flats" not in wbt_args:
             wbt_args["fix_flats"] = True
-        wbt.fill_depressions(
+        run_wbt(
+            wbt,
+            "fill_depressions",
             dem=Path(filtered_dem).resolve(),
             output=Path(output_filled_path).resolve(),
             **wbt_args,
@@ -552,7 +555,9 @@ class pyGeoFlood(object):
         # use absolute paths to avoid errors
         if "out_type" not in wbt_args:
             wbt_args["out_type"] = "cells"
-        wbt.quinn_flow_accumulation(
+        run_wbt(
+            wbt,
+            "quinn_flow_accumulation",
             dem=Path(filled_dem).resolve(),
             output=Path(output_mfd_fac_path).resolve(),
             **wbt_args,
@@ -625,7 +630,9 @@ class pyGeoFlood(object):
 
         # calculate D8 flow direction
         # use absolute paths to avoid errors
-        wbt.d8_pointer(
+        run_wbt(
+            wbt,
+            "d8_pointer",
             dem=Path(filled_dem).resolve(),
             output=Path(output_d8_fdr_path).resolve(),
             **wbt_args,
@@ -755,7 +762,9 @@ class pyGeoFlood(object):
 
         # delineate basins
         # use absolute paths to avoid errors
-        wbt.basins(
+        run_wbt(
+            wbt,
+            "basins",
             d8_pntr=Path(d8_fdr).resolve(),
             output=Path(output_basins_path).resolve(),
             **wbt_args,
@@ -1734,7 +1743,9 @@ class pyGeoFlood(object):
 
         # calculate HAND
         # use absolute paths to avoid errors
-        wbt.elevation_above_stream(
+        run_wbt(
+            wbt,
+            "elevation_above_stream",
             dem=Path(filled_dem).resolve(),
             streams=Path(channel_network_raster).resolve(),
             output=Path(output_hand_path).resolve(),
@@ -1895,7 +1906,9 @@ class pyGeoFlood(object):
 
         # delineate catchments for each segment
         # use absolute paths to avoid errors
-        wbt.watershed(
+        run_wbt(
+            wbt,
+            "watershed",
             d8_pntr=Path(d8_fdr).resolve(),
             pour_pts=Path(output_segmented_channel_network_raster_path).resolve(),
             output=Path(output_segment_catchments_path).resolve(),
@@ -2274,7 +2287,7 @@ class pyGeoFlood(object):
         if custom_flood_stage is None:
             flood_stage = self.flood_stage_path
         else:
-            flood_stage = f"{custom_flood_stage}.csv"
+            flood_stage = t.ensure_csv_suffix(custom_flood_stage)
 
         if custom_segment_catchments_raster is None:
             segment_catchment_raster = self.segment_catchments_raster_path
