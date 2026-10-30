@@ -82,13 +82,20 @@ Per invocation: `run-<profile>-<mode>-<n>.json` (one per run, full schema),
 `manifest.json`, and `SUMMARY.md` (deterministic markdown — end-to-end
 table, run-to-run variance, per-stage table, WBT calls, kernels, I/O,
 manifest). Committed baselines live in `results/` — the official one at
-`results/baseline-3650c9b/`.
+`results/baseline-3650c9b/`, whose top-level `SUMMARY.md` states the
+protocol, headline medians, the run-to-run variance statement, and the
+numba-warm vs cache=True comparison. Variant directories: `full/` and
+`crop/` record the standard (numba-warm) runs; `full-cache/` and
+`crop-cache/` record the same profiles with `--numba-cache`.
 
 The result schema is contract-tested: `pytest benchmarks/tests/` validates
 required keys, the canonical stage list, and the deterministic markdown
-writer. That test runs in CI (`.github/workflows/benchmarks.yml`) together
-with a crop-profile smoke run whose two warm passes give the run-to-run
-variance evidence.
+writer. `test_baseline_results.py` additionally gates the committed
+baseline itself: schema validity of every run, complete manifests, the
+three-cold / five-warm-rep protocol minimums, and explicit variant
+recording. That test runs in CI (`.github/workflows/benchmarks.yml`)
+together with a crop-profile smoke run whose two warm passes give the
+run-to-run variance evidence.
 
 ## Variance policy
 

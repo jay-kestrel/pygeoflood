@@ -160,6 +160,8 @@ def validate_result(result: dict) -> list[str]:
         problems.append(f"profile {result['profile']!r} not in {PROFILES}")
     if not isinstance(result["wall_clock_s"], (int, float)):
         problems.append("wall_clock_s must be numeric")
+    if "numba_cache" in result and not isinstance(result["numba_cache"], bool):
+        problems.append("numba_cache must be a boolean when present")
 
     stages = result["stages"]
     if not isinstance(stages, list):

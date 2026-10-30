@@ -1,4 +1,4 @@
-# pygeoflood benchmark — full profile (commit 233ee90a582c71bd9a7d71dcf0548471eea7e940)
+# pygeoflood benchmark — full tile (commit 3650c9b) — numba-warm variant
 
 Schema version: 1 · profile: `full` · DEM sha256: `d2dad4d4a1a7…`
 
@@ -7,6 +7,8 @@ Schema version: 1 · profile: `full` · DEM sha256: `d2dad4d4a1a7…`
 | mode | iteration | wall clock (s) |
 |---|---|---|
 | cold | 1 | 87.40 |
+| cold | 2 | 98.24 |
+| cold | 3 | 97.92 |
 | warm | 1 | 77.10 |
 | warm | 2 | 75.43 |
 
@@ -20,35 +22,35 @@ Bypassed in upstream `run_fim_workflow()` at 3650c9b (geodesic path, upstream is
 
 | stage | cold | warm (median) | status |
 |---|---|---|---|
-| apply_nonlinear_filter | 17.66 | 17.92 | timed |
-| calculate_slope | 1.59 | 1.57 | timed |
-| calculate_curvature | 1.93 | 1.93 | timed |
+| apply_nonlinear_filter | 22.52 | 17.92 | timed |
+| calculate_slope | 1.61 | 1.57 | timed |
+| calculate_curvature | 2.10 | 1.93 | timed |
 | fill_depressions | 12.14 | 12.11 | timed |
-| calculate_mfd_flow_accumulation | 7.50 | 10.01 | timed |
-| calculate_d8_flow_direction | 4.34 | 6.55 | timed |
-| find_outlets | 0.24 | 0.25 | timed |
-| delineate_basins | 1.68 | 1.57 | timed |
-| define_skeleton | 1.23 | 1.19 | timed |
+| calculate_mfd_flow_accumulation | 7.90 | 10.01 | timed |
+| calculate_d8_flow_direction | 4.12 | 6.55 | timed |
+| find_outlets | 0.29 | 0.25 | timed |
+| delineate_basins | 1.61 | 1.57 | timed |
+| define_skeleton | 1.34 | 1.19 | timed |
 | find_endpoints | 0.06 | 0.12 | timed |
-| calculate_binary_hand | 7.41 | 0.91 | timed |
-| extract_channel_network | 7.41 | 2.78 | timed |
-| calculate_hand | 9.18 | 8.14 | timed |
-| segment_channel_network | 0.91 | 0.91 | timed |
-| delineate_segment_catchments | 2.50 | 2.21 | timed |
-| calculate_src | 9.63 | 7.31 | timed |
+| calculate_binary_hand | 8.28 | 0.91 | timed |
+| extract_channel_network | 3.32 | 2.78 | timed |
+| calculate_hand | 8.37 | 8.14 | timed |
+| segment_channel_network | 0.88 | 0.91 | timed |
+| delineate_segment_catchments | 2.28 | 2.21 | timed |
+| calculate_src | 18.05 | 7.31 | timed |
 | calculate_flood_stage | 0.01 | 0.01 | timed |
-| inundate | 1.99 | 0.79 | timed |
+| inundate | 2.28 | 0.79 | timed |
 
 ## WhiteboxTools calls (C++ subprocesses)
 
 | tool | host stage | calls/run | cold (s) | warm (s) |
 |---|---|---|---|---|
 | fill_depressions | fill_depressions | 1 | 12.13 | 12.11 |
-| quinn_flow_accumulation | calculate_mfd_flow_accumulation | 1 | 7.50 | 9.99 |
-| d8_pointer | calculate_d8_flow_direction | 1 | 3.61 | 5.38 |
-| basins | delineate_basins | 1 | 1.67 | 1.56 |
-| elevation_above_stream | calculate_hand | 1 | 9.10 | 8.12 |
-| watershed | delineate_segment_catchments | 1 | 2.16 | 2.04 |
+| quinn_flow_accumulation | calculate_mfd_flow_accumulation | 1 | 7.90 | 9.99 |
+| d8_pointer | calculate_d8_flow_direction | 1 | 3.48 | 5.38 |
+| basins | delineate_basins | 1 | 1.60 | 1.56 |
+| elevation_above_stream | calculate_hand | 1 | 8.36 | 8.12 |
+| watershed | delineate_segment_catchments | 1 | 2.06 | 2.04 |
 
 ## Python/numba kernels
 
@@ -56,19 +58,19 @@ Cold timings include the one-off numba JIT compile; the cold-vs-warm delta is th
 
 | kernel | host stage | cold (s) | warm (s) |
 |---|---|---|---|
-| anisodiff | apply_nonlinear_filter | 16.32 | 16.52 |
-| jit_binary_hand | calculate_binary_hand | 7.10 | 0.59 |
-| process_cells | calculate_src | 8.47 | 6.32 |
-| jit_inun | inundate | 1.22 | 0.02 |
+| anisodiff | apply_nonlinear_filter | 21.15 | 16.52 |
+| jit_binary_hand | calculate_binary_hand | 7.88 | 0.59 |
+| process_cells | calculate_src | 16.94 | 6.32 |
+| jit_inun | inundate | 1.43 | 0.02 |
 
 ## Raster/CSV/vector I/O
 
 | kind | warm calls/run | cold (s) | warm (s) |
 |---|---|---|---|
-| raster_read | 48 | 3.38 | 3.64 |
-| raster_write | 20 | 4.13 | 4.07 |
+| raster_read | 48 | 3.34 | 3.64 |
+| raster_write | 20 | 4.21 | 4.07 |
 | csv_write | 4 | 0.02 | 0.02 |
-| vector_write | 2 | 0.05 | 0.04 |
+| vector_write | 2 | 0.03 | 0.04 |
 
 ## Environment manifest
 

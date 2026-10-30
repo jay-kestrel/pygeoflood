@@ -89,13 +89,31 @@ def numba_threads() -> dict:
         return {"numba_num_threads": None, "numba_env_threads": None}
 
 
+def _wbt_for_manifest():
+    """A WhiteboxTools handle pointed at the SAME binary the benchmark
+    uses — WBT_PATH when set (pygeoflood's get_WhiteboxTools honors it),
+    else the pip package's default directory."""
+    from whitebox import WhiteboxTools
+
+    wbt = WhiteboxTools()
+    wbt_path = os.getenv("WBT_PATH")
+    if wbt_path:
+        wbt.set_whitebox_dir(wbt_path)
+    return wbt
+
+
 def wbt_versions() -> dict:
     """WhiteboxTools binary version (runs the binary) and pip package version."""
     binary_version = None
     try:
-        from whitebox import WhiteboxTools
-
-        binary_version = WhiteboxTools().version()
+        version = _wbt_for_manifest().version()
+        # The whitebox lib RETURNS (rather than raises) an OSError from
+        # version() when the binary is missing — coerce it so the
+        # manifest stays JSON-serializable either way.
+        if isinstance(version, str):
+            binary_version = version
+        else:
+            binary_version = f"unavailable: {version}"
     except Exception as error:  # binary download failure is a manifest fact
         binary_version = f"unavailable: {error}"
     try:
@@ -116,9 +134,7 @@ def wbt_max_procs() -> int | str:
     which misreports -1 whenever the process cwd is not the exe dir.
     """
     try:
-        from whitebox.whitebox_tools import WhiteboxTools
-
-        exe_dir = Path(WhiteboxTools().exe_path)
+        exe_dir = Path(_wbt_for_manifest().exe_path)
         return json.loads((exe_dir / "settings.json").read_text())["max_procs"]
     except (OSError, ValueError, KeyError) as error:
         return f"unavailable: {error}"
