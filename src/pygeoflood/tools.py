@@ -1553,6 +1553,13 @@ def get_river_attributes(
     river_attributes_pre = river_attributes_pre[
         river_attributes_pre["HYDROID"] != profile["nodata"]
     ]
+    # Real WBT basin/catchment ids are positive. A rasterized background
+    # (HYDROID 0) would otherwise survive into the SRC CSV as a junk row with
+    # NaN COMID, absorbing background cells into a nonsense entry (review
+    # art_SjgX1Jzb F2). `> 0` also drops NaN and negative junk values.
+    river_attributes_pre = river_attributes_pre[
+        river_attributes_pre["HYDROID"] > 0
+    ]
 
     ra = river_attributes_pre.copy()
     for _, row in segments.iterrows():
@@ -1603,7 +1610,10 @@ def process_cells(
 
     Returns int32 counts and float32 surface, bed and volume arrays with
     shape (nheights, ncatchments). The native kernel preserves the rounding
-    and searchsorted insertion-index semantics of the fixed Numba kernel.
+    semantics of the fixed Numba kernel. Only cells whose hydroid appears
+    exactly in the lookup table are attributed: background (0), nodata, and
+    any other absent hydroid are skipped, never folded into an adjacent
+    catchment's slot (review art_SjgX1Jzb F2).
     """
     hand = np.asarray(hand)
     slope = np.asarray(slope)
