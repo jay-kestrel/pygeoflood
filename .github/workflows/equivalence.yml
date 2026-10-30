@@ -18,8 +18,9 @@ on:
 jobs:
   equivalence:
     runs-on: ubuntu-latest
-    # three full pipeline generations (reference determinism pair + the
-    # COBOL-backend row): budgeted above the two-run baseline
+    # two pinned full-size generations (reference determinism pair) plus
+    # a paired Python/COBOL reduced-window generation (the COBOL row;
+    # see cobol_run): budgeted above the two-run baseline
     timeout-minutes: 45
     env:
       WBT_PATH: /opt/wbt/WhiteboxTools_linux_amd64/WBT
