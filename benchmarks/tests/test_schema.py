@@ -78,6 +78,18 @@ def test_invalid_stage_status_is_flagged():
     assert any("status" in problem for problem in problems)
 
 
+def test_numba_cache_flag_is_validated_when_present():
+    # Optional variant marker (spec D1 cache=True comparison baseline):
+    # valid as a boolean, flagged as anything else, and its absence is
+    # fine so pre-variant baselines stay schema-valid.
+    stub = schema.stub_result()
+    stub["numba_cache"] = True
+    assert schema.validate_result(stub) == []
+    stub["numba_cache"] = "yes"
+    problems = schema.validate_result(stub)
+    assert any("numba_cache" in problem for problem in problems)
+
+
 def test_unknown_stage_is_flagged():
     stub = schema.stub_result()
     stub["stages"].append({"name": "not_a_stage", "duration_s": 1.0, "status": "timed"})

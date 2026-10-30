@@ -50,6 +50,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="scratch directory for DEM copies and pipeline outputs "
         "(default: %s)" % default_work_root(),
     )
+    parser.add_argument(
+        "--numba-cache",
+        action="store_true",
+        help="re-jit the numba kernels with cache=True at runtime and "
+        "record the runs as the cache=True comparison variant (spec D1)",
+    )
     return parser.parse_args(argv)
 
 
@@ -64,10 +70,13 @@ def main(argv: list[str] | None = None) -> int:
         out_dir,
         warm_runs=args.warm_runs,
         work_root=args.workdir,
+        numba_cache=args.numba_cache,
     )
 
     print()
     print("=== benchmark complete ===")
+    if args.numba_cache:
+        print("  variant: numba cache=True (disk-cached kernels)")
     for result in suite["results"]:
         print(f"  {result['mode']:<5} run {result['iteration']}: {result['wall_clock_s']:.2f} s")
     variance = suite["variance"]

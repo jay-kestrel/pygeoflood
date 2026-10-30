@@ -13,6 +13,7 @@ from typing import Any, Callable
 from . import schema
 from .instrumentation import PipelineProbe
 from .manifest import collect_manifest
+from .numba_cache import enable_numba_cache
 from .profiles import PreparedProfile, prepare_profile
 from .results import summarize_variance, write_run_json, write_summary
 
@@ -113,6 +114,7 @@ def run_once(
         "profile": prepared.profile,
         "mode": mode,
         "iteration": iteration,
+        "numba_cache": manifest.get("numba_cache", False),
         "started_utc": started_utc,
         "wall_clock_s": wall_clock,
         "stages": probe.as_stages(),
@@ -134,14 +136,25 @@ def run_suite(
     warm_runs: int = 2,
     work_root: Path | None = None,
     config: dict | None = None,
+    numba_cache: bool = False,
 ) -> dict:
     """Cold run + *warm_runs* warm runs of *profile*; writes per-run JSON,
-    manifest.json and SUMMARY.md into *out_dir*."""
+    manifest.json and SUMMARY.md into *out_dir*.
+
+    With *numba_cache* the numba kernels are re-jitted with cache=True
+    before any compilation (the cache=True comparison variant — see
+    benchmarks/numba_cache.py) and the variant is stamped on the
+    manifest and every result.
+    """
     root = repo_root()
     work = work_root if work_root is not None else default_work_root()
     prepared = prepare_profile(profile, root, work)
     configure_wbt()
+    cache_report = enable_numba_cache() if numba_cache else None
     manifest = collect_manifest(prepared.dem_path, root, prepared.crop)
+    manifest["numba_cache"] = bool(numba_cache)
+    if cache_report is not None:
+        manifest["numba_cache_kernels"] = cache_report
     factory = build_factory(prepared, config)
 
     results = [
