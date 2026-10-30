@@ -926,7 +926,7 @@ def fast_marching(
         except IOError as e:
             print("Error in calculating skfmm travel time")
             print("Error in catchment: ", basinIndexList)
-            print("I/O error({0}): {1}".format(e.errno, e.strerror))
+            print(f"I/O error: {e}")
             # setting travel time to empty array
             travel_time = np.nan * np.zeros_like(cost_function)
             # if defaults.doPlot == 1:
@@ -935,10 +935,15 @@ def fast_marching(
             # plt.contour(speed,cmap=cm.coolwarm)
             #    raster_point_plot(phi, fmm_start_points[:,i],
             #                      'phi basin Index'+str(basinIndexList))
-        except ValueError:
-            print("Error in calculating skfmm travel time")
-            print("Error in catchment: ", basinIndexList)
-            print("That was not a valid number")
+        except ValueError as e:
+            # skfmm raises ValueError for degenerate basins (e.g. an
+            # all-zero speed field after masking leaves phi without a zero
+            # contour); falling through left travel_time unbound or still
+            # holding the previous basin's solution, silently writing
+            # wrong-basin distances downstream. Fail fast with context.
+            raise RuntimeError(
+                f"skfmm travel_time failed for basin {basinIndexList}"
+            ) from e
         geodesic_distance[maskedBasin == 1] = travel_time[maskedBasin == 1]
     geodesic_distance[maskedBasin == 1] = travel_time[maskedBasin == 1]
     geodesic_distance[geodesic_distance == np.inf] = np.nan
