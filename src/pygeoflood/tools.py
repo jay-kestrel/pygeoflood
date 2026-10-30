@@ -444,6 +444,17 @@ def get_file_path(
     return file_path
 
 
+def ensure_csv_suffix(path: str | PathLike) -> str:
+    """
+    Append a ".csv" suffix to a path only when it has no suffix already.
+
+    Custom flood-stage paths may already carry the .csv extension;
+    unconditionally appending produced "my_stage.csv.csv".
+    """
+    file_path = Path(path)
+    return str(file_path) if file_path.suffix else str(file_path) + ".csv"
+
+
 def minmax_scale(array: np.ndarray) -> np.ndarray:
     """
     Min-max scale an array to have values between 0 and 1.
@@ -509,8 +520,9 @@ def get_WhiteboxTools(
         WhiteboxTools instance.
     """
     wbt = WhiteboxTools()
-    # whitebox_exe_dir = "/path/to/whitebox/bin"
-    whitebox_exe_dir = os.getenv("WBT_PATH", None)
+    if whitebox_exe_dir is None:
+        # explicit argument wins; WBT_PATH is only the fallback
+        whitebox_exe_dir = os.getenv("WBT_PATH", None)
     if whitebox_exe_dir:
         wbt.set_whitebox_dir(whitebox_exe_dir)
     wbt.set_verbose_mode(verbose)

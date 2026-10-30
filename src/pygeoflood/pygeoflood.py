@@ -2287,7 +2287,7 @@ class pyGeoFlood(object):
         if custom_flood_stage is None:
             flood_stage = self.flood_stage_path
         else:
-            flood_stage = f"{custom_flood_stage}.csv"
+            flood_stage = t.ensure_csv_suffix(custom_flood_stage)
 
         if custom_segment_catchments_raster is None:
             segment_catchment_raster = self.segment_catchments_raster_path
