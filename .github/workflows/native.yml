@@ -22,11 +22,12 @@ jobs:
       - name: Check out
         env:
           GH_TOKEN: ${{ github.token }}
+          GIT_REF: ${{ github.ref }}
         run: |
           git config --global init.defaultBranch main
           git init -q .
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git fetch -q --depth=1 origin "$GIT_REF"
           git checkout -q FETCH_HEAD
       - name: Install Rust toolchain
         run: rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy
@@ -48,11 +49,12 @@ jobs:
       - name: Check out
         env:
           GH_TOKEN: ${{ github.token }}
+          GIT_REF: ${{ github.ref }}
         run: |
           git config --global init.defaultBranch main
           git init -q .
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git fetch -q --depth=1 origin "$GIT_REF"
           git checkout -q FETCH_HEAD
       - name: Create Python environment
         run: |
@@ -84,11 +86,12 @@ jobs:
       - name: Check out
         env:
           GH_TOKEN: ${{ github.token }}
+          GIT_REF: ${{ github.ref }}
         run: |
           git config --global init.defaultBranch main
           git init -q .
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git fetch -q --depth=1 origin "$GIT_REF"
           git checkout -q FETCH_HEAD
       - name: Install uv
         run: python3 -m pip install --user uv

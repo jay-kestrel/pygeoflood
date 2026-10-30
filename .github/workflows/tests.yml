@@ -14,11 +14,15 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 # Actions-free workflow: the repository policy accepts Actions components
 # from jay-kestrel-owned repositories only, so checkout runs inline with
 # the workflow token and the Python environment comes from the runner
 # interpreter (ubuntu-latest ships 3.12). WhiteboxTools is downloaded each
-# run instead of cached (same pinned archive, small download).
+# run instead of cached (same pinned archive, small download); the
+# archive sha256 is verified before unzip.
 jobs:
   process-cells-determinism:
     runs-on: ubuntu-latest
@@ -29,11 +33,12 @@ jobs:
       - name: Check out
         env:
           GH_TOKEN: ${{ github.token }}
+          GIT_REF: ${{ github.ref }}
         run: |
           git config --global init.defaultBranch main
           git init -q .
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git fetch -q --depth=1 origin "$GIT_REF"
           git checkout -q FETCH_HEAD
 
       - name: Create Python environment
@@ -67,11 +72,12 @@ jobs:
       - name: Check out
         env:
           GH_TOKEN: ${{ github.token }}
+          GIT_REF: ${{ github.ref }}
         run: |
           git config --global init.defaultBranch main
           git init -q .
           git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
-          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git fetch -q --depth=1 origin "$GIT_REF"
           git checkout -q FETCH_HEAD
 
       - name: Create Python environment
@@ -81,11 +87,18 @@ jobs:
           echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
 
       - name: Download WhiteboxTools v2.4.0
+        env:
+          # sha256 of the v2.4.0 archive served by the URL below (the binary
+          # in it self-reports v2.4.0). Verified before unzip so a replaced
+          # artifact fails loudly instead of executing. Kept in sync with
+          # the same step in equivalence.yml.
+          WBT_ZIP_SHA256: 370493b569aaf84977fde95921f96d4a39c1820a2d36d907da9d53772295f440
         run: |
           mkdir -p /opt/wbt
           curl -sL --retry 3 \
             https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_amd64.zip \
             -o /tmp/wbt.zip
+          echo "${WBT_ZIP_SHA256}  /tmp/wbt.zip" | sha256sum -c -
           unzip -q -o /tmp/wbt.zip -d /opt/wbt
 
       - name: Verify pinned WhiteboxTools version

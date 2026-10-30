@@ -9,8 +9,15 @@ jobs:
   docs:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - uses: actions/setup-python@v3
+      # Full-commit-SHA pins: tags are mutable refs, so a compromised action
+      # repository could repoint a tag at attacker-controlled code.
+      - uses: actions/checkout@a37ce9120846195fa4ece8f58b268e6043cb2f26 # v3
+        with:
+          # checkout persists the workflow token into .git/config by default
+          # (zizmor artipacked); this job never pushes — the Pages step
+          # passes its own token — so don't persist it.
+          persist-credentials: false
+      - uses: actions/setup-python@3542bca2639a428e1796aaa6a2ffef0c0f575566 # v3
         with:
           python-version: '3.12'
       - name: Install dependencies
@@ -23,7 +30,7 @@ jobs:
         run: |
           sphinx-build -b html -E doc _build/html
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v3
+        uses: peaceiris/actions-gh-pages@373f7f263a76c20808c831209c920827a82a2847 # v3
 #        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         with:
           publish_branch: gh-pages
