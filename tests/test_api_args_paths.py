@@ -11,8 +11,6 @@ so "my_stage.csv" was looked up as "my_stage.csv.csv".
 
 from pathlib import Path
 
-import pytest
-
 from pygeoflood.tools import get_WhiteboxTools
 
 

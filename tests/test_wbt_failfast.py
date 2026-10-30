@@ -35,8 +35,10 @@ class StubWBT:
 
 PANIC_OUTPUT = (
     "thread 'main' panicked at whitebox-tools-app/src/main.rs:72:21:",
-    "note: run with `RUST_BACKTRACE=1` environment variable to display a "
-    "backtrace",
+    (
+        "note: run with `RUST_BACKTRACE=1` environment variable to display a "
+        "backtrace"
+    ),
 )
 
 
