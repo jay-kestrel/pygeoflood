@@ -58,3 +58,14 @@ jobs:
       - name: Run golden equivalence suite
         run: |
           pytest tests/test_golden_equivalence.py -v
+
+      - name: Upload regeneration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: golden-regen-diagnostics
+          path: |
+            tests/golden/data/run1/manifest.sha256
+            tests/golden/data/run2/manifest.sha256
+            tests/golden/data/run1/OC1mTestCrop_src.csv
+          if-no-files-found: error
