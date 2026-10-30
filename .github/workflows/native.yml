@@ -49,7 +49,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e . pytest 'maturin>=1.8,<2'
-          pytest tests/test_anisodiff.py -q
+          pytest tests/test_anisodiff.py tests/test_process_cells.py tests/test_process_cells_determinism.py -q
       - name: Build abi3 wheel and source distribution
         run: |
           maturin build --release --locked --out dist
@@ -69,7 +69,7 @@ jobs:
           pip uninstall -y pygeoflood
           pip install --no-deps dist/*.whl
           mkdir -p "$RUNNER_TEMP/native-tests"
-          cp tests/test_anisodiff.py tests/reference_anisodiff.py "$RUNNER_TEMP/native-tests/"
+          cp tests/test_anisodiff.py tests/reference_anisodiff.py tests/test_process_cells.py tests/reference_process_cells.py "$RUNNER_TEMP/native-tests/"
           cd "$RUNNER_TEMP/native-tests"
           pytest -q
       - name: Rebuild and test from sdist
