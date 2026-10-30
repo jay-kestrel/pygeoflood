@@ -872,16 +872,28 @@ def get_fmm_points(
     basin_elements,
     area_threshold,
 ):
-    fmmX = []
-    fmmY = []
+    # Race-free rewrite: each prange worker writes only its own slot in the
+    # selection flags, and the selected outlets are folded serially in fixed
+    # (ascending-label) order afterwards, so the output is bitwise identical
+    # for any NUMBA_NUM_THREADS. The original appended to shared fmmX/fmmY
+    # lists from inside prange — a data race that could lose or duplicate
+    # entries and vary the output from run to run.
     basins_ravel = basins.ravel()
     n_pixels = basins.size
-    for label in prange(outlets.shape[1]):
+    n_labels = outlets.shape[1]
+    selected = np.zeros(n_labels, dtype=np.bool_)
+    for label in prange(n_labels):
         numelements = np.sum(basins_ravel == (label + 1))
         percentBasinArea = numelements * 100.00001 / n_pixels
         if (percentBasinArea > area_threshold) and (
             numelements > basin_elements
         ):
+            selected[label] = True
+
+    fmmX = []
+    fmmY = []
+    for label in range(n_labels):
+        if selected[label]:
             fmmX.append(outlets[1, label])
             fmmY.append(outlets[0, label])
 
@@ -916,7 +928,10 @@ def fast_marching(
     # Fast marching
     print("Performing fast marching")
     # Do fast marching for each sub basin
-    geodesic_distance = np.zeros_like(basins)
+    # Float storage is required: zeros_like(basins) inherited the integer
+    # basin dtype, and the inf initialization crashed with OverflowError
+    # before any marching happened.
+    geodesic_distance = np.zeros_like(basins, dtype=np.float64)
     geodesic_distance[geodesic_distance == 0] = np.inf
     fmm_total_iter = len(fmm_start_points[0])
     for i in range(fmm_total_iter):
@@ -961,7 +976,9 @@ def fast_marching(
                 f"skfmm travel_time failed for basin {basinIndexList}"
             ) from e
         geodesic_distance[maskedBasin == 1] = travel_time[maskedBasin == 1]
-    geodesic_distance[maskedBasin == 1] = travel_time[maskedBasin == 1]
+    # The loop body already assigns every basin's travel time; there is no
+    # post-loop re-assignment (it re-ran the last basin's mask and crashed
+    # with an unbound travel_time/maskedBasin when there were no basins).
     geodesic_distance[geodesic_distance == np.inf] = np.nan
     # Plot the geodesic array
     # if defaults.doPlot == 1:
@@ -1121,7 +1138,7 @@ def get_endpoints(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return endpoints
 
 
-@jit(nopython=True, parallel=True)
+@jit(nopython=True)
 def jit_binary_hand(
     dem: np.ndarray,
     flowline_raster: np.ndarray,
@@ -1138,13 +1155,17 @@ def jit_binary_hand(
     # r_x = np.full_like(dem, nodata)
     # r_y = np.full_like(dem, nodata)
 
-    distanceArray = np.full_like(dem, nodata)
-    allocationArray = np.zeros_like(dem)
+    # The two chamfer sweeps are inherently sequential: the forward pass
+    # reads the same-row left neighbour and the already-updated rows above
+    # it (the backward pass mirrors this), so every cell depends on values
+    # written earlier in the same sweep. The forward pass ran under prange —
+    # workers read half-updated neighbours, so results varied with thread
+    # count and scheduling. Run both sweeps serially.
     distanceArray = np.where(flowline_raster == 1, 0, np.inf)
     allocationArray = np.where(flowline_raster == 1, dem, np.inf)
 
-    for row in prange(distanceArray.shape[0]):
-        for col in prange(distanceArray.shape[1]):
+    for row in range(distanceArray.shape[0]):
+        for col in range(distanceArray.shape[1]):
             z = distanceArray[row, col]
             if z != 0:
                 z_min = np.inf
