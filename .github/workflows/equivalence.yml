@@ -82,3 +82,11 @@ jobs:
       - name: Run golden equivalence suite
         run: |
           pytest tests/test_golden_equivalence.py -v
+
+      - name: Run kernel safety tests
+        # Parallel thread count on purpose: the determinism regressions in
+        # tests/test_kernel_safety.py only bite with NUMBA_NUM_THREADS > 1.
+        env:
+          NUMBA_NUM_THREADS: "4"
+        run: |
+          pytest tests/test_kernel_safety.py -v
