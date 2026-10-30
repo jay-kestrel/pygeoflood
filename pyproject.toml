@@ -33,7 +33,7 @@ dependencies = [
     "numpy",
     "netcdf4",
     "pandas",
-    "psutil",
+    "psutil>=5.9",
     "rasterio",
     "scikit-fmm",
     "scikit-image",
