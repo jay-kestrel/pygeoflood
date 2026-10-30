@@ -1,4 +1,4 @@
-# pygeoflood benchmark — crop profile (commit 233ee90a582c71bd9a7d71dcf0548471eea7e940)
+# pygeoflood benchmark — crop (commit 3650c9b) — numba-warm variant
 
 Schema version: 1 · profile: `crop` · DEM sha256: `9c9a304b664e…`
 Crop window: origin (row 1200, col 300), 2000x2000 cells
@@ -8,12 +8,18 @@ Crop window: origin (row 1200, col 300), 2000x2000 cells
 | mode | iteration | wall clock (s) |
 |---|---|---|
 | cold | 1 | 25.48 |
+| cold | 2 | 29.28 |
+| cold | 3 | 28.66 |
+| cold | 4 | 29.20 |
 | warm | 1 | 15.66 |
 | warm | 2 | 16.25 |
+| warm | 3 | 18.68 |
+| warm | 4 | 18.80 |
+| warm | 5 | 19.74 |
 
 ## Run-to-run variance
 
-Warm-run spread 3.69% (mean 15.96 s, 2 runs) — within the 10% guidance.
+Warm-run spread 22.89% (mean 17.83 s, 5 runs) — EXCEEDS the 10% guidance.
 
 ## Per-stage timings (seconds)
 
@@ -21,34 +27,34 @@ Bypassed in upstream `run_fim_workflow()` at 3650c9b (geodesic path, upstream is
 
 | stage | cold | warm (median) | status |
 |---|---|---|---|
-| apply_nonlinear_filter | 2.72 | 2.80 | timed |
-| calculate_slope | 0.38 | 0.38 | timed |
-| calculate_curvature | 0.40 | 0.43 | timed |
-| fill_depressions | 3.05 | 3.05 | timed |
-| calculate_mfd_flow_accumulation | 1.99 | 1.95 | timed |
-| calculate_d8_flow_direction | 1.21 | 1.18 | timed |
-| find_outlets | 0.06 | 0.06 | timed |
-| delineate_basins | 0.53 | 0.54 | timed |
-| define_skeleton | 0.27 | 0.28 | timed |
+| apply_nonlinear_filter | 4.28 | 4.34 | timed |
+| calculate_slope | 0.40 | 0.39 | timed |
+| calculate_curvature | 0.46 | 0.46 | timed |
+| fill_depressions | 3.04 | 3.07 | timed |
+| calculate_mfd_flow_accumulation | 2.05 | 2.09 | timed |
+| calculate_d8_flow_direction | 1.16 | 1.18 | timed |
+| find_outlets | 0.08 | 0.08 | timed |
+| delineate_basins | 0.54 | 0.55 | timed |
+| define_skeleton | 0.33 | 0.31 | timed |
 | find_endpoints | 0.01 | 0.01 | timed |
-| calculate_binary_hand | 6.30 | 0.19 | timed |
-| extract_channel_network | 0.61 | 0.55 | timed |
-| calculate_hand | 1.79 | 1.79 | timed |
-| segment_channel_network | 0.15 | 0.15 | timed |
-| delineate_segment_catchments | 0.74 | 0.73 | timed |
-| calculate_src | 3.93 | 1.65 | timed |
+| calculate_binary_hand | 7.34 | 0.20 | timed |
+| extract_channel_network | 0.66 | 0.64 | timed |
+| calculate_hand | 1.80 | 1.78 | timed |
+| segment_channel_network | 0.18 | 0.19 | timed |
+| delineate_segment_catchments | 0.74 | 0.75 | timed |
+| calculate_src | 4.23 | 2.05 | timed |
 | calculate_flood_stage | 0.01 | 0.00 | timed |
-| inundate | 1.34 | 0.19 | timed |
+| inundate | 1.47 | 0.21 | timed |
 
 ## WhiteboxTools calls (C++ subprocesses)
 
 | tool | host stage | calls/run | cold (s) | warm (s) |
 |---|---|---|---|---|
-| fill_depressions | fill_depressions | 1 | 3.04 | 3.04 |
-| quinn_flow_accumulation | calculate_mfd_flow_accumulation | 1 | 1.99 | 1.95 |
-| d8_pointer | calculate_d8_flow_direction | 1 | 1.05 | 1.01 |
-| basins | delineate_basins | 1 | 0.52 | 0.54 |
-| elevation_above_stream | calculate_hand | 1 | 1.79 | 1.79 |
+| fill_depressions | fill_depressions | 1 | 3.03 | 3.06 |
+| quinn_flow_accumulation | calculate_mfd_flow_accumulation | 1 | 2.05 | 2.09 |
+| d8_pointer | calculate_d8_flow_direction | 1 | 1.00 | 1.01 |
+| basins | delineate_basins | 1 | 0.54 | 0.55 |
+| elevation_above_stream | calculate_hand | 1 | 1.80 | 1.78 |
 | watershed | delineate_segment_catchments | 1 | 0.68 | 0.68 |
 
 ## Python/numba kernels
@@ -57,17 +63,17 @@ Cold timings include the one-off numba JIT compile; the cold-vs-warm delta is th
 
 | kernel | host stage | cold (s) | warm (s) |
 |---|---|---|---|
-| anisodiff | apply_nonlinear_filter | 2.39 | 2.51 |
-| jit_binary_hand | calculate_binary_hand | 6.20 | 0.12 |
-| process_cells | calculate_src | 3.67 | 1.41 |
-| jit_inun | inundate | 1.14 | 0.00 |
+| anisodiff | apply_nonlinear_filter | 3.92 | 4.04 |
+| jit_binary_hand | calculate_binary_hand | 7.22 | 0.12 |
+| process_cells | calculate_src | 3.95 | 1.76 |
+| jit_inun | inundate | 1.25 | 0.00 |
 
 ## Raster/CSV/vector I/O
 
 | kind | warm calls/run | cold (s) | warm (s) |
 |---|---|---|---|
-| raster_read | 40 | 0.77 | 0.76 |
-| raster_write | 20 | 1.02 | 1.04 |
+| raster_read | 40 | 0.78 | 0.77 |
+| raster_write | 20 | 1.10 | 1.09 |
 | csv_write | 4 | 0.01 | 0.01 |
 | vector_write | 2 | 0.01 | 0.01 |
 
