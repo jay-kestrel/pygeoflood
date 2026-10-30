@@ -49,7 +49,7 @@ fn anisodiff<'py>(
         gamma_double: precision.3,
     };
     let output = py
-        .allow_threads(move || diffusion::anisodiff(image, shape.1, parameters, checknan))
+        .detach(move || diffusion::anisodiff(image, shape.1, parameters, checknan))
         .map_err(|_| PyValueError::new_err("anisodiff input contains NaN"))?;
     let output = Array2::from_shape_vec(shape, output)
         .map_err(|err| PyValueError::new_err(err.to_string()))?;
