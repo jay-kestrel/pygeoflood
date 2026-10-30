@@ -22,6 +22,13 @@ if [ ! -x "$VENV/bin/python" ]; then
   fi
 fi
 
+# COBOL kernel rows: compile the backend when GnuCOBOL is present so a
+# PYGEOFLOOD_COBOL=1 rerun of this script can produce backend-tagged rows.
+# Optional: without cobc the baseline reproduces on the default (Rust) route.
+if command -v cobc >/dev/null 2>&1; then
+  make -C cobol lib
+fi
+
 # Headline profile: full 16.0M-pixel tile, cold + 2 warm.
 "$VENV/bin/python" -m benchmarks --profile full --warm-runs 2 \
   --outdir benchmarks/results/reproduce-full

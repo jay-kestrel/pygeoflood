@@ -55,6 +55,9 @@ BYPASSED_STAGES = [
 # kernel time from glue and I/O.
 KERNELS = [
     "anisodiff",
+    # Backend-tagged COBOL row: recorded instead of "anisodiff" when the
+    # PYGEOFLOOD_COBOL dispatch is active (spec D1, art_QEojt4gd).
+    "anisodiff_cobol",
     "get_fmm_points",
     "jit_binary_hand",
     "process_cells",

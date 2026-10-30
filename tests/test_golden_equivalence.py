@@ -12,7 +12,9 @@ tests/golden/generate_golden_fixtures.py). This suite:
    artifact class, comparing candidate outputs (run 1) against golden
    outputs (run 2),
 4. proves discrimination: a deliberately perturbed output must FAIL each
-   gate (the current structure-only suite's blind spot).
+   gate (the current structure-only suite's blind spot),
+5. re-applies the tolerance gates to a third generation produced with the
+   COBOL anisodiff backend (PYGEOFLOOD_COBOL=1) — the spec D1 COBOL row.
 
 Tolerance table (spec art_4Ga5fqvh, Verification):
 
@@ -53,6 +55,8 @@ PINNED_MANIFEST = GOLDEN_DIR / "golden_manifest.sha256"
 DATA_DIR = GOLDEN_DIR / "data"
 RUN1 = DATA_DIR / "run1"  # candidate outputs
 RUN2 = DATA_DIR / "run2"  # golden reference outputs
+RUN3 = DATA_DIR / "run3"  # candidate outputs, COBOL anisodiff backend
+COBOL_LIBRARY = TESTS_DIR.parent / "cobol" / "lib" / "pygeoflood_cobol.so"
 
 # tolerance from the spec's Verification section
 RTOL = 1e-6
@@ -241,6 +245,33 @@ def golden_runs():
     return RUN1, RUN2
 
 
+@pytest.fixture(scope="session")
+def cobol_run():
+    """Run the generator once with the COBOL anisodiff backend.
+
+    Requires the built backend (make -C cobol lib, GnuCOBOL 3); without it
+    the COBOL row is skipped so the suite still runs the reference-pipeline
+    gates. The run routes through the real PYGEOFLOOD_COBOL dispatch in the
+    generator subprocess — no in-process shortcuts.
+    """
+    if not COBOL_LIBRARY.is_file():
+        pytest.skip("COBOL backend not built — run `make -C cobol lib`")
+    env = dict(
+        os.environ,
+        NUMBA_NUM_THREADS="1",
+        OMP_NUM_THREADS="1",
+        PYGEOFLOOD_COBOL="1",
+    )
+    shutil.rmtree(RUN3, ignore_errors=True)
+    subprocess.run(
+        [sys.executable, str(GENERATOR), "--output-dir", str(RUN3)],
+        check=True,
+        env=env,
+        cwd=str(TESTS_DIR.parent),
+    )
+    return RUN3
+
+
 # --------------------------------------------------------------------------
 # determinism + pin tests
 # --------------------------------------------------------------------------
@@ -331,6 +362,66 @@ class TestToleranceTable:
         run1, run2 = golden_runs
         assert gate_binary_hand(
             artifact_path(run1, "binary_hand"),
+            artifact_path(run2, "binary_hand"),
+        )
+
+
+# --------------------------------------------------------------------------
+# COBOL-backend row (spec D1): the same tolerance gates applied to a
+# candidate generated with PYGEOFLOOD_COBOL=1. WBT integer rasters are
+# intentionally NOT gated here: those byte-identical checks verify the
+# reference pipeline's determinism (run 1 vs run 2), while WBT consumes
+# the anisodiff-filtered DEM and its integer outputs may flip under the
+# kernel's documented rtol 1e-6 float32 differences.
+# --------------------------------------------------------------------------
+
+
+class TestCobolEquivalence:
+    """Tolerance-table gates for the COBOL-routed pipeline run."""
+
+    def test_cobol_hand_raster_within_rtol(self, cobol_run, golden_runs):
+        _, run2 = golden_runs
+        assert gate_hand_raster(
+            artifact_path(cobol_run, "hand_raster"),
+            artifact_path(run2, "hand_raster"),
+        )
+
+    def test_cobol_inundation_mask_exact_and_depths_within_rtol(
+        self, cobol_run, golden_runs
+    ):
+        _, run2 = golden_runs
+        assert gate_inundation_map(
+            artifact_path(cobol_run, "inundation_map"),
+            artifact_path(run2, "inundation_map"),
+        )
+
+    def test_cobol_src_csv_within_rtol(self, cobol_run, golden_runs):
+        _, run2 = golden_runs
+        assert gate_src_csv(
+            artifact_path(cobol_run, "src_csv"),
+            artifact_path(run2, "src_csv"),
+        )
+
+    def test_cobol_flood_stage_csv_within_rtol(self, cobol_run, golden_runs):
+        _, run2 = golden_runs
+        assert gate_flood_stage_csv(
+            artifact_path(cobol_run, "flood_stage_csv"),
+            artifact_path(run2, "flood_stage_csv"),
+        )
+
+    def test_cobol_channel_network_cell_set_identical(
+        self, cobol_run, golden_runs
+    ):
+        _, run2 = golden_runs
+        assert gate_channel_network_raster(
+            artifact_path(cobol_run, "channel_network_raster"),
+            artifact_path(run2, "channel_network_raster"),
+        )
+
+    def test_cobol_binary_hand_exact(self, cobol_run, golden_runs):
+        _, run2 = golden_runs
+        assert gate_binary_hand(
+            artifact_path(cobol_run, "binary_hand"),
             artifact_path(run2, "binary_hand"),
         )
 
