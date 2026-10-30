@@ -43,6 +43,9 @@ dependencies = [
     "fiona",
 ]
 
+[project.scripts]
+pygeoflood = "pygeoflood.cli:main"
+
 [project.optional-dependencies]
 # Benchmark harness extras (deliverable D1). psutil moved to core deps
 # in 9da5c91; the harness needs pytest to run its schema tests.
