@@ -46,9 +46,19 @@ class _TimedWBT:
         def timed_tool(*args: Any, **kwargs: Any) -> Any:
             start = time.perf_counter()
             try:
-                return attr(*args, **kwargs)
+                ret = attr(*args, **kwargs)
             finally:
                 probe.record_wbt(name, time.perf_counter() - start)
+            # The whitebox lib returns an exit code (0 ok, 1 error,
+            # 2 cancelled) and never raises on tool failure; upstream
+            # pyGeoFlood ignores it, so a failed WBT call only surfaces
+            # much later as an unrelated missing-file error. Fail here,
+            # loudly, instead.
+            if isinstance(ret, int) and ret != 0:
+                raise RuntimeError(
+                    f"WhiteboxTools {name} failed with exit code {ret}"
+                )
+            return ret
 
         return timed_tool
 

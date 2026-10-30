@@ -105,6 +105,7 @@ REQUIRED_MANIFEST_KEYS = (
     "numba_env_threads",
     "wbt_binary_version",
     "wbt_package_version",
+    "wbt_max_procs",
     "packages",
     "git_commit",
     "dem_sha256",

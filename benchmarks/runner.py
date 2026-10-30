@@ -5,6 +5,7 @@ markdown output with the run-to-run variance stated explicitly.
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 from typing import Any, Callable
@@ -27,6 +28,34 @@ def repo_root() -> Path:
 def default_work_root() -> Path:
     # Outside the checkout so benchmark runs never pollute the repo.
     return repo_root().parent / "pgf-bench-runs"
+
+
+def configure_wbt() -> None:
+    """Pin WhiteboxTools to a single thread.
+
+    FillDepressions has an upstream threading race (whitebox-tools
+    issue #476): worker threads can outlive the mpsc receive, so the
+    Arc::try_unwrap at fill_depressions.rs:368 panics with "Error
+    unwrapping 'output'" — observed on the CI runner, never locally.
+    One thread removes the race and makes WBT timings
+    machine-independent, which a reproducible baseline requires.
+
+    The pin persists in the binary's settings.json next to the
+    executable — the per-tool subprocess calls read it from there, so
+    verify the file, not the in-memory value (which the pip lib reads
+    from a cwd-relative path and can be misleadingly -1).
+    """
+    from pygeoflood import tools as pgf_tools
+
+    wbt = pgf_tools.get_WhiteboxTools()
+    wbt.set_max_procs(1)
+    settings = Path(wbt.exe_path) / "settings.json"
+    stored = json.loads(settings.read_text()).get("max_procs")
+    if stored != 1:
+        raise RuntimeError(
+            f"WhiteboxTools single-thread pin did not persist: "
+            f"{settings} says max_procs={stored!r}"
+        )
 
 
 def build_factory(
@@ -111,6 +140,7 @@ def run_suite(
     root = repo_root()
     work = work_root if work_root is not None else default_work_root()
     prepared = prepare_profile(profile, root, work)
+    configure_wbt()
     manifest = collect_manifest(prepared.dem_path, root, prepared.crop)
     factory = build_factory(prepared, config)
 

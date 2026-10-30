@@ -42,8 +42,9 @@ absent.
 Every run writes `manifest.json` and embeds it in each result:
 CPU count and model, total RAM, platform, Python version, numba thread
 count (actual and `NUMBA_NUM_THREADS`), WhiteboxTools binary and package
-versions, versions of the full dependency set, the checkout's git commit,
-the DEM sha256, and grid metadata.
+versions plus the pinned WhiteboxTools thread count, versions of the full
+dependency set, the checkout's git commit, the DEM sha256, and grid
+metadata.
 
 ## Running
 
@@ -69,7 +70,11 @@ outputs go to `<repo>/../pgf-bench-runs/` (override with `--workdir`) —
 the checkout stays clean except for the results you explicitly copy in.
 
 WhiteboxTools downloads its binary on first use; set `WBT_PATH` to a
-cached installation to pin it.
+cached installation to pin it. The harness itself pins WhiteboxTools to
+a single thread (`set_max_procs(1)`): upstream FillDepressions has a
+threading race that intermittently panics on multicore machines
+(whitebox-tools issue #476), and one thread also makes the WBT stage
+timings machine-independent.
 
 ## Results
 

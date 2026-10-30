@@ -1,0 +1,241 @@
+{
+  "io": {
+    "csv_write_count": 4,
+    "csv_write_seconds": 0.008380588999898464,
+    "raster_read_count": 40,
+    "raster_read_seconds": 0.7654363640003794,
+    "raster_write_count": 20,
+    "raster_write_seconds": 1.0249797649994434,
+    "vector_write_count": 2,
+    "vector_write_seconds": 0.007721839999703661
+  },
+  "iteration": 1,
+  "kernels": [
+    {
+      "duration_s": 2.434982747000049,
+      "kernel": "anisodiff",
+      "stage": "apply_nonlinear_filter"
+    },
+    {
+      "duration_s": 0.12784313600013775,
+      "kernel": "jit_binary_hand",
+      "stage": "calculate_binary_hand"
+    },
+    {
+      "duration_s": 1.3311090269999113,
+      "kernel": "process_cells",
+      "stage": "calculate_src"
+    },
+    {
+      "duration_s": 0.0017280500001106702,
+      "kernel": "jit_inun",
+      "stage": "inundate"
+    }
+  ],
+  "manifest": {
+    "cpu_count": 8,
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.60GHz",
+    "crop": {
+      "flowline_clipped_vertices": 13,
+      "flowline_original_vertices": 68,
+      "height": 2000,
+      "origin_col": 300,
+      "origin_row": 1200,
+      "width": 2000
+    },
+    "dem": {
+      "bounds": [
+        567951.0,
+        3333015.0,
+        569951.0,
+        3335015.0
+      ],
+      "cell_count": 4000000,
+      "crs": "EPSG:6343",
+      "dtype": "float32",
+      "nodata": -3.4028234663852886e+38,
+      "path": "/home/user/work/pgf-bench-runs/crop/OC1mTest_crop2000.tif",
+      "resolution": [
+        1.0,
+        1.0
+      ],
+      "shape": [
+        2000,
+        2000
+      ]
+    },
+    "dem_sha256": "9c9a304b664e31226edd04abb4bce5a66d43a819ea53ded0987bf32417756b98",
+    "generated_utc": "2026-10-30T17:33:31Z",
+    "git_commit": "233ee90a582c71bd9a7d71dcf0548471eea7e940",
+    "numba_env_threads": null,
+    "numba_num_threads": 8,
+    "packages": {
+      "fiona": "1.10.1",
+      "geopandas": "1.2.0",
+      "netcdf4": "1.7.5.1.post1",
+      "numba": "0.68.1",
+      "numpy": "2.5.4",
+      "pandas": "3.1.0",
+      "psutil": "7.2.2",
+      "pygeoflood": "0.0.3a8",
+      "rasterio": "1.5.2",
+      "scikit-fmm": "2025.6.23",
+      "scikit-image": "0.26.0",
+      "scipy": "1.18.1",
+      "shapely": "2.2.0",
+      "whitebox": "2.3.6",
+      "xarray": "2026.9.0"
+    },
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.41",
+    "python_version": "3.12.16 (main, Oct 26 2026, 14:08:45) [Clang 23.1.3 ]",
+    "ram_total_bytes": 8342290432,
+    "wbt_binary_version": "WhiteboxTools v2.4.0 (c) Dr. John Lindsay 2017-2023\n\nWhiteboxTools is an advanced geospatial data analysis platform developed at\nthe University of Guelph's Geomorphometry and Hydrogeomatics Research \nGroup (GHRG). See www.whiteboxgeo.com for more details.\n",
+    "wbt_max_procs": 1,
+    "wbt_package_version": "2.3.6"
+  },
+  "mode": "warm",
+  "profile": "crop",
+  "run_id": "crop-warm-1",
+  "schema_version": 1,
+  "stages": [
+    {
+      "duration_s": 2.731248601000061,
+      "name": "apply_nonlinear_filter",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.3746865489997617,
+      "name": "calculate_slope",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.4151569240002573,
+      "name": "calculate_curvature",
+      "status": "timed"
+    },
+    {
+      "duration_s": 2.9679137150001225,
+      "name": "fill_depressions",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.9288125360003505,
+      "name": "calculate_mfd_flow_accumulation",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.1776376079997135,
+      "name": "calculate_d8_flow_direction",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.06160287399961817,
+      "name": "find_outlets",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.5384332640001048,
+      "name": "delineate_basins",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.28042126399986955,
+      "name": "define_skeleton",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.011156162999668595,
+      "name": "find_endpoints",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.19455568400007905,
+      "name": "calculate_binary_hand",
+      "status": "timed"
+    },
+    {
+      "duration_s": null,
+      "name": "rasterize_custom_flowline",
+      "status": "skipped"
+    },
+    {
+      "duration_s": 0.5506968519998736,
+      "name": "extract_channel_network",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.758159305999925,
+      "name": "calculate_hand",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.15828390899969236,
+      "name": "segment_channel_network",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.7428472239998882,
+      "name": "delineate_segment_catchments",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.5785308900003656,
+      "name": "calculate_src",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.0044211559998075245,
+      "name": "calculate_flood_stage",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.18785664200004248,
+      "name": "inundate",
+      "status": "timed"
+    }
+  ],
+  "started_utc": "2026-10-30T17:33:56Z",
+  "variance": {
+    "mean_s": 15.95702404650001,
+    "runs_s": [
+      15.66282251299981,
+      16.25122558000021
+    ],
+    "spread_pct": 3.6874235777657987,
+    "threshold_pct": 10.0,
+    "within_threshold": true
+  },
+  "wall_clock_s": 15.66282251299981,
+  "wbt_calls": [
+    {
+      "duration_s": 2.9642578829998456,
+      "stage": "fill_depressions",
+      "tool": "fill_depressions"
+    },
+    {
+      "duration_s": 1.9232072499999049,
+      "stage": "calculate_mfd_flow_accumulation",
+      "tool": "quinn_flow_accumulation"
+    },
+    {
+      "duration_s": 1.0125349360000655,
+      "stage": "calculate_d8_flow_direction",
+      "tool": "d8_pointer"
+    },
+    {
+      "duration_s": 0.5352128419999644,
+      "stage": "delineate_basins",
+      "tool": "basins"
+    },
+    {
+      "duration_s": 1.7539791970002625,
+      "stage": "calculate_hand",
+      "tool": "elevation_above_stream"
+    },
+    {
+      "duration_s": 0.6874374160001935,
+      "stage": "delineate_segment_catchments",
+      "tool": "watershed"
+    }
+  ]
+}

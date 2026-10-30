@@ -1,0 +1,4 @@
+# Ad-hoc run outputs from validation and reproduction. The official
+# baselines (results/baseline-*) stay tracked.
+reproduce-*/
+smoke-*/

@@ -8,6 +8,7 @@ identified by sha256 — same bytes, same workload.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import platform
 import subprocess
@@ -104,7 +105,23 @@ def wbt_versions() -> dict:
     return {
         "wbt_binary_version": binary_version,
         "wbt_package_version": package_version,
+        "wbt_max_procs": wbt_max_procs(),
     }
+
+
+def wbt_max_procs() -> int | str:
+    """Effective WhiteboxTools thread pin, read from the binary's own
+    settings.json (the per-tool subprocesses read it from there).
+    The pip lib's get_max_procs() reads a cwd-relative settings.json,
+    which misreports -1 whenever the process cwd is not the exe dir.
+    """
+    try:
+        from whitebox.whitebox_tools import WhiteboxTools
+
+        exe_dir = Path(WhiteboxTools().exe_path)
+        return json.loads((exe_dir / "settings.json").read_text())["max_procs"]
+    except (OSError, ValueError, KeyError) as error:
+        return f"unavailable: {error}"
 
 
 def package_versions() -> dict[str, str | None]:
