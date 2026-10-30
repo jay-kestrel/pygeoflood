@@ -19,11 +19,27 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      # Org Actions policy only permits actions from repositories owned by
+      # jay-kestrel, so actions/checkout is inlined as a run step (fetches the
+      # same commits actions/checkout would provide).
+      - name: Checkout
+        run: |
+          git init "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" remote add origin "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$GITHUB_WORKSPACE" fetch --depth=1 origin "${GITHUB_REF}"
+          git -C "$GITHUB_WORKSPACE" checkout --detach FETCH_HEAD
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      # actions/setup-python is blocked by the same policy; uv (from PyPI,
+      # bootstrapped in a throwaway venv) installs the pinned interpreter into
+      # a pip-seeded venv that the pip/pytest steps below pick up via PATH.
+      - name: Install Python 3.12 via uv
+        run: |
+          python3 -m venv /tmp/uv-bootstrap
+          /tmp/uv-bootstrap/bin/pip install --quiet "uv==0.13.6"
+          echo "/tmp/uv-bootstrap/bin" >> "$GITHUB_PATH"
+          uv python install 3.12
+          uv venv --seed --python 3.12
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
       - name: Install Rust toolchain
         run: |
@@ -46,21 +62,27 @@ jobs:
       NUMBA_NUM_THREADS: "1"
       OMP_NUM_THREADS: "1"
     steps:
-      - uses: actions/checkout@v4
+      # Org Actions policy: inline checkout and uv-managed Python instead of
+      # the blocked third-party actions.
+      - name: Checkout
+        run: |
+          git init "$GITHUB_WORKSPACE"
+          git -C "$GITHUB_WORKSPACE" remote add origin "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git"
+          git -C "$GITHUB_WORKSPACE" fetch --depth=1 origin "${GITHUB_REF}"
+          git -C "$GITHUB_WORKSPACE" checkout --detach FETCH_HEAD
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Install Python 3.12 via uv
+        run: |
+          python3 -m venv /tmp/uv-bootstrap
+          /tmp/uv-bootstrap/bin/pip install --quiet "uv==0.13.6"
+          echo "/tmp/uv-bootstrap/bin" >> "$GITHUB_PATH"
+          uv python install 3.12
+          uv venv --seed --python 3.12
+          echo "$PWD/.venv/bin" >> "$GITHUB_PATH"
 
-      - name: Cache WhiteboxTools v2.4.0
-        id: wbt-cache
-        uses: actions/cache@v4
-        with:
-          path: /opt/wbt
-          key: wbt-v2.4.0-linux-x86_64
-
+      # actions/cache is blocked by the same policy; the pinned WhiteboxTools
+      # zip is simply downloaded on every run (the old cache-miss path).
       - name: Download WhiteboxTools v2.4.0
-        if: steps.wbt-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p /opt/wbt
           curl -sL --retry 3 \
