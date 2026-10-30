@@ -5,6 +5,7 @@ on:
     branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 # Actions-free workflow: the repository policy accepts Actions components
 # from jay-kestrel-owned repositories only, so checkout runs inline with
