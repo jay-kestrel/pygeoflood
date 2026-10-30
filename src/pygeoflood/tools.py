@@ -1789,6 +1789,30 @@ def get_flood_stage(src, streamflow_forecast_path, custom_Q):
         for hydroid in hydroids:
             q_lookup = src.loc[src["HYDROID"] == hydroid]["Discharge_cms"]
             h_lookup = src.loc[src["HYDROID"] == hydroid]["Stage_m"]
+            # NaN Discharge rows (missing COMID or roughness) poison
+            # np.interp: every query at or after the NaN x-coordinate
+            # silently returns NaN, so affected segments vanish from the
+            # inundation map (review art_SjgX1Jzb F8). Warn and exclude
+            # them; if no valid curve remains, the stage is undefined.
+            valid = q_lookup.notna()
+            if not valid.all():
+                warnings.warn(
+                    f"get_flood_stage: excluding {int((~valid).sum())} of "
+                    f"{len(valid)} SRC rows with NaN Discharge for HYDROID "
+                    f"{hydroid}; they would poison stage interpolation"
+                )
+                q_lookup = q_lookup[valid]
+                h_lookup = h_lookup[valid]
+                if q_lookup.empty:
+                    data.append(
+                        {
+                            "HYDROID": hydroid,
+                            "COMID": comid,
+                            "Discharge_cms": q,
+                            "Stage_m": np.nan,
+                        }
+                    )
+                    continue
             # if q is less than q_lookup[0] h = 0
             # if q is greater than q_lookup[-1] h = -32768 (nodata)
             h = np.interp(q, q_lookup, h_lookup, left=0, right=-32768)
