@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=64.0"]
-build-backend = "setuptools.build_meta"
+requires = ["maturin>=1.8,<2"]
+build-backend = "maturin"
 
 [project]
 name = "pygeoflood"
@@ -55,8 +55,12 @@ bench = [
 "Repository" = "https://github.com/passaH2O/GeoFlood"
 "Bug Tracker" = "https://github.com/passaH2O/GeoFlood/issues"
 
-[tool.setuptools]
-package-data = { "pygeoflood" = ["data/COMID_Roughness.csv"] }
+[tool.maturin]
+manifest-path = "rust/Cargo.toml"
+python-source = "src"
+module-name = "pygeoflood._rust"
+features = ["extension-module"]
+include = [{ path = "src/pygeoflood/data/COMID_Roughness.csv", format = ["sdist", "wheel"] }]
 
 [tool.pytest.ini_options]
 # Bare `pytest` collects the dependency-light harness schema tests;
