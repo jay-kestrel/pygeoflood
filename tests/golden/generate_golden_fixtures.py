@@ -161,12 +161,56 @@ def check_environment(output_dir):
     )
 
 
-def prepare_inputs(output_dir):
+def _window_origin(dem_src, window_size):
+    """Deterministic crop origin for the given window size.
+
+    The pinned 2000x2000 window is DEM-centered (row 689, col 1375 —
+    the pinned manifest locks both origin and size). Reduced windows
+    are centered on the flowline's median vertex instead: the flowline
+    is a thin diagonal path across the DEM (rows 14-2266, cols
+    1388-4749), and a DEM-centered small window can miss it entirely,
+    producing an empty clip. Clamped so the window stays inside the
+    DEM.
+    """
+    if window_size == WINDOW_ROWS:
+        return ROW_START, COL_START
+    flowline = gpd.read_file(INPUT_DIR / "Flowline.shp")
+    vertices = [
+        (x, y)
+        for geom in flowline.geometry
+        for part in (geom.geoms if hasattr(geom, "geoms") else [geom])
+        for (x, y, *_) in part.coords
+    ]
+    if not vertices:
+        raise SystemExit("Flowline.shp has no vertices to position the window")
+    xs = sorted(x for x, _ in vertices)
+    ys = sorted(y for _, y in vertices)
+    mid_x = xs[len(xs) // 2]
+    mid_y = ys[len(ys) // 2]
+    rows, cols = rio.transform.rowcol(dem_src.transform, [mid_x], [mid_y])
+    row_start = min(max(int(rows[0]) - window_size // 2, 0),
+                    EXPECTED_DEM_SHAPE[0] - window_size)
+    col_start = min(max(int(cols[0]) - window_size // 2, 0),
+                    EXPECTED_DEM_SHAPE[1] - window_size)
+    return row_start, col_start
+
+
+def prepare_inputs(output_dir, window_size=2000):
     """Crop the OC1m DEM to the fixed window and clip vectors to match.
 
     Inputs are derived deterministically from the committed test data, so
     they are rebuilt on every run rather than stored.
+
+    window_size defaults to the pinned 2000 (the pinned manifest locks
+    it). The COBOL row passes a reduced size: GnuCOBOL's decimal
+    arithmetic makes the anisodiff stage a multi-hour computation at
+    2000x2000, and the row needs a CI-feasible workload.
     """
+    if window_size > min(EXPECTED_DEM_SHAPE):
+        raise SystemExit(
+            f"window size {window_size} exceeds the DEM "
+            f"{EXPECTED_DEM_SHAPE}"
+        )
     dem_in = INPUT_DIR / "OC1mTest.tif"
     crop_dem = output_dir / f"{CROP_STEM}.tif"
     with rio.open(dem_in) as src:
@@ -175,11 +219,12 @@ def prepare_inputs(output_dir):
                 f"unexpected DEM shape {(src.height, src.width)}; the fixed "
                 f"crop window assumes {EXPECTED_DEM_SHAPE}"
             )
-        window = Window(COL_START, ROW_START, WINDOW_COLS, WINDOW_ROWS)
+        row_start, col_start = _window_origin(src, window_size)
+        window = Window(col_start, row_start, window_size, window_size)
         window_bounds = src.window_bounds(window)
         data = src.read(1, window=window)
         profile = src.profile.copy()
-        profile.update(height=WINDOW_ROWS, width=WINDOW_COLS,
+        profile.update(height=window_size, width=window_size,
                        transform=src.window_transform(window))
         with rio.open(crop_dem, "w", **profile) as dst:
             dst.write(data, 1)
@@ -254,6 +299,15 @@ def main():
         help="fail unless the generated manifest equals this pinned "
         "manifest byte-for-byte",
     )
+    parser.add_argument(
+        "--window-size",
+        type=int,
+        default=2000,
+        help="square crop window (default 2000: the pinned-manifest "
+        "window). Reduced sizes give the COBOL row a CI-feasible "
+        "anisodiff workload; any other size must never be used with "
+        "--check-manifest.",
+    )
     args = parser.parse_args()
 
     output_dir = Path(args.output_dir).resolve()
@@ -261,7 +315,7 @@ def main():
 
     check_environment(output_dir)
     print("Preparing cropped inputs ...")
-    crop_dem = prepare_inputs(output_dir)
+    crop_dem = prepare_inputs(output_dir, window_size=args.window_size)
     print(f"Running unmodified pygeoflood run_fim_workflow on {crop_dem} ...")
     run_workflow(crop_dem, output_dir)
     total_bytes = write_manifest(output_dir)
