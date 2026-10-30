@@ -1671,8 +1671,10 @@ def catchhydrogeo(
     if custom_roughness_path is not None:
         roughness = pd.read_csv(custom_roughness_path)
     else:
-        with resources.path("pygeoflood.data", "COMID_Roughness.csv") as f:
-            roughness = pd.read_csv(f)
+        roughness_csv = resources.files("pygeoflood.data").joinpath(
+            "COMID_Roughness.csv"
+        )
+        roughness = pd.read_csv(roughness_csv)
     src_df = pd.merge(src_df, roughness, on="COMID", how="left")
     src_df["TopWidth_m"] = src_df["SurfaceArea_m2"] / src_df["Length_km"] / 1e3
     src_df["WettedPerimeter_m"] = (
