@@ -359,12 +359,21 @@
                    IF WS-A < WS-NEG-MAX
                        MOVE LS-ZERO-F TO WS-R
                    ELSE
-                       COMPUTE WS-R = FUNCTION EXP(WS-A)
+                       PERFORM F32-EXP-FINITE
                    END-IF
                END-IF
            ELSE
                MOVE WS-NAN TO WS-R
            END-IF
+           .
+
+      *> finite arguments run through libm expf via the shim passthrough
+      *> (cobol_expf): GnuCOBOL's FUNCTION EXP evaluates through GMP
+      *> multi-precision floats (~124 us per call) and is infeasible on
+      *> pipeline-scale rasters; libm matches the NumPy reference within
+      *> one ulp. Paragraph at Area B indent so the CALL fits column 72.
+       F32-EXP-FINITE.
+           CALL "cobol_expf" USING BY VALUE WS-A BY REFERENCE WS-R
            .
 
        F64-ADD.
@@ -518,13 +527,20 @@
                    IF WS-A2 < WS-NEG-DBL-MAX
                        MOVE LS-ZERO-D TO WS-R2
                    ELSE
-                       COMPUTE WS-R2 = FUNCTION EXP(WS-A2)
+                       PERFORM F64-EXP-FINITE
                    END-IF
                END-IF
            ELSE
                MOVE WS-NAN2 TO WS-R2
            END-IF
            .
+
+      *> f64 twin of F32-EXP-FINITE (libm exp via the shim passthrough
+      *> cobol_exp; same GMP-avoidance rationale).
+       F64-EXP-FINITE.
+           CALL "cobol_exp" USING BY VALUE WS-A2 BY REFERENCE WS-R2
+           .
+
 
       *> Exact widening f32 -> f64 (numeric MOVEs go through decimal and
       *> destroy non-finite payloads; finite widening is exact).

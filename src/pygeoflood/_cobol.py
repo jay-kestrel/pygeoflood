@@ -73,7 +73,11 @@ class _Kernel:
                 "`make -C cobol lib` (requires GnuCOBOL 3); expected " + str(path)
             )
         try:
-            lib = ctypes.CDLL(str(path))
+            # RTLD_GLOBAL puts the shim's symbols (cobol_expf/cobol_exp)
+            # in the global namespace: the kernel resolves them through
+            # the COBOL runtime's dynamic CALL machinery (dlsym), which
+            # cannot see RTLD_LOCAL-loaded libraries.
+            lib = ctypes.CDLL(str(path), mode=ctypes.RTLD_GLOBAL)
         except OSError as exc:  # broken build/env — surface it, never fall back
             raise CobolKernelError(f"failed to load {path}: {exc}") from exc
         try:
