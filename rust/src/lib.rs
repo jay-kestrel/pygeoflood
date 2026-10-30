@@ -111,7 +111,7 @@ fn process_cells<'py>(
         .and_then(|size| size.checked_mul(32))
         .ok_or_else(|| PyValueError::new_err("accumulator shape is too large"))?;
     // Snapshot all arrays under the GIL: aliases may be mutated by Python
-    // after allow_threads, even though these NumPy borrows are read-only.
+    // after detach, even though these NumPy borrows are read-only.
     let input = cells::Inputs {
         hand: hand.iter().copied().collect(),
         catchments: catchments.iter().copied().collect(),
@@ -126,7 +126,7 @@ fn process_cells<'py>(
         volume_f32: precision.2,
     };
     let totals = py
-        .allow_threads(move || cells::process_cells(&input))
+        .detach(move || cells::process_cells(&input))
         .map_err(PyValueError::new_err)?;
     Ok((
         array2(py, shape, totals.counts)?,
