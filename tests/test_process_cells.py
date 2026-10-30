@@ -90,10 +90,49 @@ def test_empty_stages_and_empty_grid():
         assert result.shape == (5, 0)
 
 
-def test_searchsorted_insertion_index():
+def test_absent_hydroid_cells_are_skipped():
     args = list(inputs())
-    args[1][:] = 15  # insertion index 1, even without an exact hydroid match
-    assert_parity(args)
+    args[1][:] = 15  # absent from the lookup table (gap between 10 and 20)
+    CellCount, SurfaceArea, BedArea, Volume = process_cells(*args)
+    # PG-2 (review art_SjgX1Jzb F2): a cell whose hydroid is absent from the
+    # table is skipped. The insertion index must never absorb it into the
+    # slot of an adjacent catchment.
+    np.testing.assert_array_equal(CellCount, 0)
+    for array in (SurfaceArea, BedArea, Volume):
+        np.testing.assert_array_equal(array, 0)
+    assert_parity(args)  # the reference oracle skips identically
+
+
+def test_background_and_nodata_cells_are_never_attributed():
+    """The review art_SjgX1Jzb F2 probe (11-vs-6) becomes the exact-count test.
+
+    A 4x4 domain with 6 catchment-1 cells, 5 catchment-2 cells, and five
+    background/nodata cells (0 and -32768). The searchsorted insertion-index
+    semantics folded every such cell into catchment 1's slot (counts 11 and
+    5, SurfaceArea 1100.0); exact-match attribution must count 6 and 5 and
+    never attribute a background or nodata cell to any catchment.
+    """
+    catchments = np.array(
+        [
+            [1, 1, 1, 2],
+            [1, 1, 2, 2],
+            [1, -32768, 2, 0],
+            [-32768, 0, -32768, 2],
+        ],
+        dtype=np.int32,
+    )
+    args = (
+        np.full((4, 4), 0.5, dtype=np.float64),  # every cell active below height 1
+        catchments,
+        np.zeros((4, 4), dtype=np.float64),
+        np.array([[1, 0], [2, 1]], dtype=np.int32),
+        np.array([1.0], dtype=np.float64),
+        100.0,
+    )
+    CellCount, SurfaceArea, BedArea, Volume = process_cells(*args)
+    np.testing.assert_array_equal(CellCount, [[6, 5]])
+    np.testing.assert_allclose(SurfaceArea, [[600.0, 500.0]], rtol=0, atol=1e-6)
+    assert_parity(list(args))
 
 
 @pytest.mark.parametrize("bad_table", [np.array([10, 20]), np.ones((2, 3))])
@@ -111,11 +150,18 @@ def test_invalid_grid_shape():
         process_cells(*args)
 
 
-def test_out_of_range_active_hydroid_is_safe():
+def test_out_of_range_hydroid_is_skipped():
     args = list(inputs())
-    args[1][:] = 100
-    with pytest.raises(ValueError, match="outside the lookup table"):
-        process_cells(*args)
+    args[1][:] = 100  # greater than every table entry
+    # PG-2: absent hydroids are skipped uniformly, whether they fall between
+    # table entries or beyond the last one. (The pre-fix Rust kernel raised
+    # "outside the lookup table" for this case while folding below-range
+    # absent hydroids into catchment 1 — an inconsistent split.)
+    CellCount, SurfaceArea, BedArea, Volume = process_cells(*args)
+    np.testing.assert_array_equal(CellCount, 0)
+    for array in (SurfaceArea, BedArea, Volume):
+        np.testing.assert_array_equal(array, 0)
+    assert_parity(args)
 
 
 @pytest.mark.parametrize("hydroids", [[20.0, 10.0], [10.0, np.nan]])

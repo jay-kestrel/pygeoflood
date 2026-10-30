@@ -327,14 +327,29 @@ def make_valid_inputs():
     return hand, seg, slope, hid_in, heights, cell_area
 
 
-def test_foreign_hydroid_rejected():
-    """Active cells with a hydroid absent from the lookup table (foreign
-    ids) abort the kernel: the merged Rust contract fails fast instead of
-    aliasing or silently dropping their pixels."""
+def _foreign_hydroid_skips():
     hid = np.array([[100, 0], [200, 1]], dtype=np.int32)
     hand, seg, slope, hid_in, heights, cell_area = make_foreign_inputs(hid)
-    with pytest.raises(ValueError, match="outside the lookup table"):
-        process_cells(hand, seg, slope, hid_in, heights, cell_area)
+    return hand, seg, slope, hid_in, heights, cell_area
+
+
+def test_foreign_hydroid_skipped():
+    """Active cells with a hydroid absent from the lookup table (foreign
+    ids) are skipped: the merged Rust contract never folds them into an
+    adjacent catchment's slot or silently inflates its statistics
+    (review art_SjgX1Jzb F2)."""
+    hid = np.array([[100, 0], [200, 1]], dtype=np.int32)
+    hand, seg, slope, hid_in, heights, cell_area = make_foreign_inputs(hid)
+    counts, surf, bed, vol = process_cells(hand, seg, slope, hid_in, heights, cell_area)
+    reference_hand = hand.copy()
+    reference_seg = np.where(np.isin(seg, hid[:, 0]), seg, 0)
+    expected_counts, expected_surf, expected_bed, expected_vol = process_reference(
+        reference_hand, reference_seg, slope, hid_in, heights, cell_area
+    )
+    np.testing.assert_array_equal(counts, expected_counts)
+    np.testing.assert_allclose(surf, expected_surf, rtol=1e-2)
+    np.testing.assert_allclose(bed, expected_bed, rtol=1e-2)
+    np.testing.assert_allclose(vol, expected_vol, rtol=1e-2)
 
 
 def test_unsorted_hydroids_rejected():
@@ -346,12 +361,15 @@ def test_unsorted_hydroids_rejected():
         process_cells(hand, seg, slope, hid_in, heights, cell_area)
 
 
-def test_all_unknown_values_rejected():
+def test_all_unknown_values_skipped():
     hid = np.array([[100, 0], [200, 1]], dtype=np.int32)
     hand, seg, slope, hid_in, heights, cell_area = make_foreign_inputs(hid)
     seg[:] = 999  # nothing matches
-    with pytest.raises(ValueError, match="outside the lookup table"):
-        process_cells(hand, seg, slope, hid_in, heights, cell_area)
+    counts, surf, bed, vol = process_cells(hand, seg, slope, hid_in, heights, cell_area)
+    np.testing.assert_array_equal(counts, np.zeros_like(counts))
+    np.testing.assert_array_equal(surf, np.zeros_like(surf))
+    np.testing.assert_array_equal(bed, np.zeros_like(bed))
+    np.testing.assert_array_equal(vol, np.zeros_like(vol))
 
 
 def test_process_cells_bitwise_identical_across_runs():

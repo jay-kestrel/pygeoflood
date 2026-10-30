@@ -865,39 +865,40 @@ def get_skeleton(
     return skeletonArray
 
 
-@jit(nopython=True, parallel=True)
 def get_fmm_points(
     basins,
     outlets,
     basin_elements,
     area_threshold,
 ):
-    # Race-free rewrite: each prange worker writes only its own slot in the
-    # selection flags, and the selected outlets are folded serially in fixed
-    # (ascending-label) order afterwards, so the output is bitwise identical
-    # for any NUMBA_NUM_THREADS. The original appended to shared fmmX/fmmY
-    # lists from inside prange — a data race that could lose or duplicate
-    # entries and vary the output from run to run.
-    basins_ravel = basins.ravel()
+    """Pick fast-marching seed points for outlets of qualifying basins.
+
+    A basin qualifies when its cell count exceeds ``basin_elements`` and its
+    share of the raster exceeds ``area_threshold`` percent (both strict).
+    Returns a (2, n_selected) array of (row, col) coordinates in basin-label
+    order, or a (2, 0) array when no basin qualifies.
+    """
+    # Pure NumPy selection in fixed label order. The previous numba prange
+    # kernel appended to Python lists from parallel workers: the appends
+    # raced, outputs were nondeterministic, and the process crashed with
+    # SIGSEGV or heap corruption at ambient thread counts (review
+    # art_SjgX1Jzb F3).
     n_pixels = basins.size
-    n_labels = outlets.shape[1]
-    selected = np.zeros(n_labels, dtype=np.bool_)
-    for label in prange(n_labels):
-        numelements = np.sum(basins_ravel == (label + 1))
-        percentBasinArea = numelements * 100.00001 / n_pixels
-        if (percentBasinArea > area_threshold) and (
-            numelements > basin_elements
-        ):
-            selected[label] = True
-
-    fmmX = []
-    fmmY = []
-    for label in range(n_labels):
-        if selected[label]:
-            fmmX.append(outlets[1, label])
-            fmmY.append(outlets[0, label])
-
-    return np.array([fmmY, fmmX])
+    labels = np.arange(1, outlets.shape[1] + 1)
+    # np.unique handles float rasters with NaN nodata: a NaN basin value
+    # equals no label, so it is never counted for any outlet.
+    unique_basins, basin_counts = np.unique(basins.ravel(), return_counts=True)
+    if unique_basins.size == 0:
+        return np.empty((2, 0))
+    slots = np.searchsorted(unique_basins, labels)
+    clipped = np.minimum(slots, unique_basins.size - 1)
+    matched = unique_basins[clipped] == labels
+    numelements = np.where(matched, basin_counts[clipped], 0)
+    percentBasinArea = numelements * 100.00001 / n_pixels
+    selected = (percentBasinArea > area_threshold) & (
+        numelements > basin_elements
+    )
+    return np.array([outlets[0, selected], outlets[1, selected]])
 
 
 def get_ram_usage() -> str:
@@ -1553,6 +1554,13 @@ def get_river_attributes(
     river_attributes_pre = river_attributes_pre[
         river_attributes_pre["HYDROID"] != profile["nodata"]
     ]
+    # Real WBT basin/catchment ids are positive. A rasterized background
+    # (HYDROID 0) would otherwise survive into the SRC CSV as a junk row with
+    # NaN COMID, absorbing background cells into a nonsense entry (review
+    # art_SjgX1Jzb F2). `> 0` also drops NaN and negative junk values.
+    river_attributes_pre = river_attributes_pre[
+        river_attributes_pre["HYDROID"] > 0
+    ]
 
     ra = river_attributes_pre.copy()
     for _, row in segments.iterrows():
@@ -1603,7 +1611,10 @@ def process_cells(
 
     Returns int32 counts and float32 surface, bed and volume arrays with
     shape (nheights, ncatchments). The native kernel preserves the rounding
-    and searchsorted insertion-index semantics of the fixed Numba kernel.
+    semantics of the fixed Numba kernel. Only cells whose hydroid appears
+    exactly in the lookup table are attributed: background (0), nodata, and
+    any other absent hydroid are skipped, never folded into an adjacent
+    catchment's slot (review art_SjgX1Jzb F2).
     """
     hand = np.asarray(hand)
     slope = np.asarray(slope)
@@ -1778,6 +1789,30 @@ def get_flood_stage(src, streamflow_forecast_path, custom_Q):
         for hydroid in hydroids:
             q_lookup = src.loc[src["HYDROID"] == hydroid]["Discharge_cms"]
             h_lookup = src.loc[src["HYDROID"] == hydroid]["Stage_m"]
+            # NaN Discharge rows (missing COMID or roughness) poison
+            # np.interp: every query at or after the NaN x-coordinate
+            # silently returns NaN, so affected segments vanish from the
+            # inundation map (review art_SjgX1Jzb F8). Warn and exclude
+            # them; if no valid curve remains, the stage is undefined.
+            valid = q_lookup.notna()
+            if not valid.all():
+                warnings.warn(
+                    f"get_flood_stage: excluding {int((~valid).sum())} of "
+                    f"{len(valid)} SRC rows with NaN Discharge for HYDROID "
+                    f"{hydroid}; they would poison stage interpolation"
+                )
+                q_lookup = q_lookup[valid]
+                h_lookup = h_lookup[valid]
+                if q_lookup.empty:
+                    data.append(
+                        {
+                            "HYDROID": hydroid,
+                            "COMID": comid,
+                            "Discharge_cms": q,
+                            "Stage_m": np.nan,
+                        }
+                    )
+                    continue
             # if q is less than q_lookup[0] h = 0
             # if q is greater than q_lookup[-1] h = -32768 (nodata)
             h = np.interp(q, q_lookup, h_lookup, left=0, right=-32768)

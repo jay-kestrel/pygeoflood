@@ -55,18 +55,24 @@ fn row_range(rows: usize, chunks: usize, chunk: usize) -> std::ops::Range<usize>
     start..start + base + usize::from(chunk < remainder)
 }
 
-fn accumulate_chunk(input: &Inputs, rows: std::ops::Range<usize>) -> Result<Totals, &'static str> {
+fn accumulate_chunk(input: &Inputs, rows: std::ops::Range<usize>) -> Totals {
     let ncatch = input.hydroids.len();
     let mut totals = Totals::zeros(input.heights.len() * ncatch);
     for pixel in rows.start * input.cols..rows.end * input.cols {
         let hand = input.hand[pixel];
         let near_zero = hand.abs() <= 1e-8;
         let hydroid = input.catchments[pixel];
-        // NumPy searchsorted(side="left") uses the insertion index, not the
-        // hydroid table's second column. NaNs sort after all finite IDs.
+        // Exact-match membership only: a cell whose hydroid is absent from
+        // the table (background 0, nodata, or a value between table entries)
+        // is skipped. The partition_point insertion index would otherwise
+        // fold it into an adjacent catchment's slot and silently inflate
+        // that catchment's rating-curve statistics (review art_SjgX1Jzb F2).
         let catchment = input
             .hydroids
             .partition_point(|&id| id < hydroid || hydroid.is_nan());
+        if catchment == ncatch || input.hydroids[catchment] != hydroid {
+            continue;
+        }
         let slope = input.slope[pixel];
         let square = if input.slope_f32 {
             ((slope as f32) * (slope as f32)) as f64
@@ -76,9 +82,6 @@ fn accumulate_chunk(input: &Inputs, rows: std::ops::Range<usize>) -> Result<Tota
         let bed = input.cell_area * (1.0 + square).sqrt();
         for (stage, &height) in input.heights.iter().enumerate() {
             if hand < height || near_zero {
-                if catchment == ncatch {
-                    return Err("active cell hydroid is outside the lookup table");
-                }
                 let index = stage * ncatch + catchment;
                 let delta = if input.delta_f32 {
                     ((height as f32) - (hand as f32)) as f64
@@ -99,10 +102,10 @@ fn accumulate_chunk(input: &Inputs, rows: std::ops::Range<usize>) -> Result<Tota
             }
         }
     }
-    Ok(totals)
+    totals
 }
 
-pub fn process_cells(input: &Inputs) -> Result<Totals, &'static str> {
+pub fn process_cells(input: &Inputs) -> Totals {
     let chunks = input.rows.clamp(1, MAX_CHUNKS);
     // Indexed collect retains chunk order regardless of Rayon scheduling.
     let partials: Vec<_> = (0..chunks)
@@ -111,9 +114,9 @@ pub fn process_cells(input: &Inputs) -> Result<Totals, &'static str> {
         .collect();
     let mut totals = Totals::zeros(input.heights.len() * input.hydroids.len());
     for partial in partials {
-        totals.fold(partial?);
+        totals.fold(partial);
     }
-    Ok(totals)
+    totals
 }
 
 #[cfg(test)]
@@ -138,7 +141,7 @@ mod tests {
 
     #[test]
     fn single_catchment_crop() {
-        let totals = process_cells(&crop()).unwrap();
+        let totals = process_cells(&crop());
         assert_eq!(totals.counts, [1, 2, 3]);
         assert_eq!(totals.surface, [2.0, 4.0, 6.0]);
         assert_eq!(totals.bed, totals.surface);
@@ -149,7 +152,7 @@ mod tests {
     fn empty_catchment() {
         let mut input = crop();
         input.hydroids.push(20.0);
-        let totals = process_cells(&input).unwrap();
+        let totals = process_cells(&input);
         assert_eq!(totals.counts, [1, 0, 2, 0, 3, 0]);
         for values in [&totals.surface, &totals.bed, &totals.volume] {
             assert!(values.iter().skip(1).step_by(2).all(|&v| v == 0.0));
@@ -174,15 +177,27 @@ mod tests {
         input.hand = (0..134).map(|i| (i % 7) as f64 / 7.0).collect();
         input.catchments = vec![10.0; 134];
         input.slope = vec![0.13; 134];
-        let reference = process_cells(&input).unwrap();
+        let reference = process_cells(&input);
         for threads in [1, 2, 4] {
             let pool = rayon::ThreadPoolBuilder::new()
                 .num_threads(threads)
                 .build()
                 .unwrap();
             for _ in 0..5 {
-                assert_eq!(pool.install(|| process_cells(&input)).unwrap(), reference);
+                assert_eq!(pool.install(|| process_cells(&input)), reference);
             }
         }
+    }
+
+    #[test]
+    fn absent_hydroid_cells_are_skipped() {
+        // Review art_SjgX1Jzb F2: background (0) and nodata cells must never
+        // be folded into the slot of an adjacent catchment.
+        let mut input = crop();
+        input.catchments = vec![10.0, 15.0, 0.0, f64::NAN];
+        let totals = process_cells(&input);
+        assert_eq!(totals.counts, [1, 1, 1]);
+        assert_eq!(totals.surface, [2.0, 2.0, 2.0]);
+        assert_eq!(totals.volume, [0.0, 2.0, 4.0]);
     }
 }

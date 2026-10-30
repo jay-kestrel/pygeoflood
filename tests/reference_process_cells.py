@@ -2,6 +2,12 @@
 # Frozen verbatim from tools.py at 1da71e8 (83ab7d3 chunk reduction).
 # Derived from pygeoflood by Paola Passalacqua, Xing Zheng, Alec Carruthers,
 # Mark Wang, and Matthew Preisser. Test oracle only.
+#
+# PG-2 deviation from the frozen text (review art_SjgX1Jzb F2): the original
+# kernel attributed cells by searchsorted insertion index, so cells whose
+# hydroid is absent from the lookup table (background 0, nodata, NaN) were
+# folded into an adjacent catchment's slot. The fixed kernel — and this
+# oracle — skip absent hydroids instead.
 import numpy as np
 from numba import jit, prange
 
@@ -58,6 +64,14 @@ def process_cells(
             for j in range(hand.shape[1]):
                 hydroid = segment_catchments[i, j]
                 hydroid_index = np.searchsorted(hid_dict_array[:, 0], hydroid)
+                # Exact-match membership: absent hydroids are skipped, never
+                # folded into the slot their insertion index points at
+                # (PG-2, review art_SjgX1Jzb F2).
+                if (
+                    hydroid_index >= ncatch
+                    or hid_dict_array[hydroid_index, 0] != hydroid
+                ):
+                    continue
                 hand_height = hand[i, j]
                 slp_value = slope[i, j]
                 for h_idx in range(nheight):

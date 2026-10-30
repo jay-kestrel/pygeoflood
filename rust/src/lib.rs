@@ -125,9 +125,7 @@ fn process_cells<'py>(
         delta_f32: precision.1,
         volume_f32: precision.2,
     };
-    let totals = py
-        .detach(move || cells::process_cells(&input))
-        .map_err(PyValueError::new_err)?;
+    let totals = py.detach(move || cells::process_cells(&input));
     Ok((
         array2(py, shape, totals.counts)?,
         array2(py, shape, totals.surface)?,
