@@ -43,6 +43,13 @@ dependencies = [
     "fiona",
 ]
 
+[project.optional-dependencies]
+# Benchmark harness extras (deliverable D1). psutil moved to core deps
+# in 9da5c91; the harness needs pytest to run its schema tests.
+bench = [
+    "pytest>=7.0",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/passaH2O/GeoFlood"
 "Repository" = "https://github.com/passaH2O/GeoFlood"
@@ -50,3 +57,9 @@ dependencies = [
 
 [tool.setuptools]
 package-data = { "pygeoflood" = ["data/COMID_Roughness.csv"] }
+
+[tool.pytest.ini_options]
+# Bare `pytest` collects the dependency-light harness schema tests;
+# the data-heavy functional suite stays opt-in via
+# `pytest tests/test_functionality.py` (README workflow).
+testpaths = ["benchmarks/tests"]

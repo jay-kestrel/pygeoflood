@@ -1,0 +1,234 @@
+{
+  "io": {
+    "csv_write_count": 4,
+    "csv_write_seconds": 0.018900888999269227,
+    "raster_read_count": 48,
+    "raster_read_seconds": 3.382529116000569,
+    "raster_write_count": 20,
+    "raster_write_seconds": 3.9391127409990077,
+    "vector_write_count": 2,
+    "vector_write_seconds": 0.02985364699998172
+  },
+  "iteration": 2,
+  "kernels": [
+    {
+      "duration_s": 15.965780461000122,
+      "kernel": "anisodiff",
+      "stage": "apply_nonlinear_filter"
+    },
+    {
+      "duration_s": 0.5941272039999603,
+      "kernel": "jit_binary_hand",
+      "stage": "calculate_binary_hand"
+    },
+    {
+      "duration_s": 6.341772308000145,
+      "kernel": "process_cells",
+      "stage": "calculate_src"
+    },
+    {
+      "duration_s": 0.015625747000285628,
+      "kernel": "jit_inun",
+      "stage": "inundate"
+    }
+  ],
+  "manifest": {
+    "cpu_count": 8,
+    "cpu_model": "Intel(R) Xeon(R) Processor @ 2.60GHz",
+    "crop": null,
+    "dem": {
+      "bounds": [
+        567651.0,
+        3332837.0,
+        572401.0,
+        3336215.0
+      ],
+      "cell_count": 16045500,
+      "crs": "EPSG:6343",
+      "dtype": "float32",
+      "nodata": -3.4028234663852886e+38,
+      "path": "/home/user/work/pgf-bench-runs/full/OC1mTest.tif",
+      "resolution": [
+        1.0,
+        1.0
+      ],
+      "shape": [
+        3378,
+        4750
+      ]
+    },
+    "dem_sha256": "d2dad4d4a1a7b0843c492b4ba7ab9fd8ef4d4480727a95f43176bbbc6908cc4f",
+    "generated_utc": "2026-10-30T16:57:58Z",
+    "git_commit": "233ee90a582c71bd9a7d71dcf0548471eea7e940",
+    "numba_env_threads": null,
+    "numba_num_threads": 8,
+    "packages": {
+      "fiona": "1.10.1",
+      "geopandas": "1.2.0",
+      "netcdf4": "1.7.5.1.post1",
+      "numba": "0.68.1",
+      "numpy": "2.5.4",
+      "pandas": "3.1.0",
+      "psutil": "7.2.2",
+      "pygeoflood": "0.0.3a8",
+      "rasterio": "1.5.2",
+      "scikit-fmm": "2025.6.23",
+      "scikit-image": "0.26.0",
+      "scipy": "1.18.1",
+      "shapely": "2.2.0",
+      "whitebox": "2.3.6",
+      "xarray": "2026.9.0"
+    },
+    "platform": "Linux-6.1.158+-x86_64-with-glibc2.41",
+    "python_version": "3.12.16 (main, Oct 26 2026, 14:08:45) [Clang 23.1.3 ]",
+    "ram_total_bytes": 8342290432,
+    "wbt_binary_version": "WhiteboxTools v2.4.0 (c) Dr. John Lindsay 2017-2023\n\nWhiteboxTools is an advanced geospatial data analysis platform developed at\nthe University of Guelph's Geomorphometry and Hydrogeomatics Research \nGroup (GHRG). See www.whiteboxgeo.com for more details.\n",
+    "wbt_max_procs": 1,
+    "wbt_package_version": "2.3.6"
+  },
+  "mode": "warm",
+  "profile": "full",
+  "run_id": "full-warm-2",
+  "schema_version": 1,
+  "stages": [
+    {
+      "duration_s": 17.219549391000328,
+      "name": "apply_nonlinear_filter",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.496132149999994,
+      "name": "calculate_slope",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.8015874200000326,
+      "name": "calculate_curvature",
+      "status": "timed"
+    },
+    {
+      "duration_s": 11.735447466000096,
+      "name": "fill_depressions",
+      "status": "timed"
+    },
+    {
+      "duration_s": 12.433810483999878,
+      "name": "calculate_mfd_flow_accumulation",
+      "status": "timed"
+    },
+    {
+      "duration_s": 4.503972972999691,
+      "name": "calculate_d8_flow_direction",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.2375099699997918,
+      "name": "find_outlets",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.538445923999916,
+      "name": "delineate_basins",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.175208030000249,
+      "name": "define_skeleton",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.12294838900015748,
+      "name": "find_endpoints",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.9080161159999989,
+      "name": "calculate_binary_hand",
+      "status": "timed"
+    },
+    {
+      "duration_s": null,
+      "name": "rasterize_custom_flowline",
+      "status": "skipped"
+    },
+    {
+      "duration_s": 2.7872328039998138,
+      "name": "extract_channel_network",
+      "status": "timed"
+    },
+    {
+      "duration_s": 8.099043468000218,
+      "name": "calculate_hand",
+      "status": "timed"
+    },
+    {
+      "duration_s": 1.0446294799999123,
+      "name": "segment_channel_network",
+      "status": "timed"
+    },
+    {
+      "duration_s": 2.2203604129999803,
+      "name": "delineate_segment_catchments",
+      "status": "timed"
+    },
+    {
+      "duration_s": 7.316866723999738,
+      "name": "calculate_src",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.006114923000041017,
+      "name": "calculate_flood_stage",
+      "status": "timed"
+    },
+    {
+      "duration_s": 0.781952881000052,
+      "name": "inundate",
+      "status": "timed"
+    }
+  ],
+  "started_utc": "2026-10-30T17:20:10Z",
+  "variance": {
+    "mean_s": 76.26248536849971,
+    "runs_s": [
+      77.0951424179998,
+      75.42982831899963
+    ],
+    "spread_pct": 2.1836609323094915,
+    "threshold_pct": 10.0,
+    "within_threshold": true
+  },
+  "wall_clock_s": 75.42982831899963,
+  "wbt_calls": [
+    {
+      "duration_s": 11.729825413000071,
+      "stage": "fill_depressions",
+      "tool": "fill_depressions"
+    },
+    {
+      "duration_s": 12.384674078999979,
+      "stage": "calculate_mfd_flow_accumulation",
+      "tool": "quinn_flow_accumulation"
+    },
+    {
+      "duration_s": 3.484758967000289,
+      "stage": "calculate_d8_flow_direction",
+      "tool": "d8_pointer"
+    },
+    {
+      "duration_s": 1.5347330739996323,
+      "stage": "delineate_basins",
+      "tool": "basins"
+    },
+    {
+      "duration_s": 8.077238661000138,
+      "stage": "calculate_hand",
+      "tool": "elevation_above_stream"
+    },
+    {
+      "duration_s": 2.0529055599999992,
+      "stage": "delineate_segment_catchments",
+      "tool": "watershed"
+    }
+  ]
+}
