@@ -157,6 +157,41 @@ WBT_PATH=/path/to/WBT pytest tests/test_golden_equivalence.py
 with the cached WhiteboxTools v2.4.0 binary and the pins from
 `tests/golden/requirements-pins.txt`.
 
+## Julia kernel-track development checks
+
+`julia/` is an experimental, additive subproject (a sibling of `rust/`) that
+ports the first-party numeric kernels to Julia — currently `process_cells`,
+its callees `binary_search`/`jit_inun`, and `jit_binary_hand` — and verifies
+them against the same golden corpus the Python equivalence suite gates on
+(SRC CSV at rtol 1e-6, inundation mask exact + depths rtol 1e-6, binary HAND
+exact). It reads the corpus's rasters directly as `.npy` fixtures (no
+WhiteboxTools, no GDAL, no Python in the loop) and is invoked as a
+subprocess — the same integration shape WhiteboxTools itself uses.
+
+Install Julia 1.10.9 (pinned in CI) with
+[juliaup](https://github.com/JuliaLang/juliaup) or the tarball:
+
+```bash
+curl -sL https://julialang-s3.julialang.org/bin/linux/x64/1.10/julia-1.10.9-linux-x86_64.tar.gz -o /tmp/julia.tar.gz
+echo "5a2d2c5224594b683c97e7304cb72407fbcf0be4a0187789cba1a2f73f0cbf09  /tmp/julia.tar.gz" | sha256sum -c -
+mkdir -p /opt/julia && tar -xzf /tmp/julia.tar.gz -C /opt/julia --strip-components=1
+export PATH=/opt/julia/bin:$PATH
+```
+
+Run from the repository root (fixtures are generated, not committed —
+they are ~136 MB of corpus arrays):
+
+```bash
+python julia/tools/dump_kernel_fixtures.py \
+  --corpus-dir tests/golden/data/run1 --out julia/test/fixtures
+julia --project=julia -e 'using Pkg; Pkg.test()'
+julia --project=julia julia/test/equivalence_runner.jl julia/test/fixtures
+```
+
+The equivalence runner re-derives the kernels' outputs from the corpus and
+applies the gates plus a discrimination check (a perturbed input must fail).
+CI runs the same steps in `.github/workflows/julia.yml`.
+
 ## Citing
 
 When using pygeoflood, please cite the following papers:
