@@ -30,13 +30,43 @@ $ pip install "numpy==2.3.5"
 $ pip install --no-deps .
 ```
 
-For local `pygeoflood` development, install in editable mode:
+For local development of this fork, install in editable mode. Source and
+editable installs require a C linker and Rust 1.85.1 or newer (`cargo`,
+`rustc`); CI uses 1.85.1. Maturin is installed automatically by pip as the
+PEP 517 build backend — do not run setuptools separately. Built wheels use
+CPython's abi3 (3.10+) interface; the package still supports Python 3.10–3.12.
 
 ```bash
-$ git clone https://github.com/passah2o/pygeoflood
+$ git clone https://github.com/jay-kestrel/pygeoflood
 $ cd pygeoflood
 $ pip install -e .
 ```
+
+The private `pygeoflood._rust` extension currently accelerates only
+`tools.anisodiff`; all other kernels and geospatial dependencies remain in
+Python. The public filter signature, float32 output, and directional NaN
+masking are unchanged. Rayon uses the available CPU pool; set
+`RAYON_NUM_THREADS` before the first native call to limit it.
+
+Native development checks (run from the repository root):
+
+```bash
+$ cargo fmt --manifest-path rust/Cargo.toml --check
+$ PYO3_PYTHON=python cargo clippy --manifest-path rust/Cargo.toml --locked --all-targets -- -D warnings
+$ PYO3_PYTHON=python cargo test --manifest-path rust/Cargo.toml --locked
+$ pytest tests/test_anisodiff.py
+```
+
+For Python installations whose shared library is not on the dynamic linker
+search path, set `LD_LIBRARY_PATH` to `python -c 'import sysconfig;
+print(sysconfig.get_config_var("LIBDIR"))'` when running Cargo unit tests on
+Linux. Re-run `pip install -e .` after editing Rust; editable imports do not
+recompile it automatically.
+
+The native CI workflow tests editable installs, abi3 wheels, and sdist
+rebuilds on Python 3.10, 3.11, and 3.12. Golden-value verification remains
+`WBT_PATH=/path/to/WBT pytest tests/test_golden_equivalence.py` with the
+cached WhiteboxTools v2.4.0 binary and `tests/golden/requirements-pins.txt`.
 
 To run the test suite:
 

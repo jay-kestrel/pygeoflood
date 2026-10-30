@@ -1,0 +1,19 @@
+[package]
+name = "pygeoflood-rs"
+version = "0.0.3-alpha.8"
+edition = "2021"
+rust-version = "1.85"
+license = "GPL-3.0-or-later"
+description = "Native numerical kernels for pygeoflood"
+
+[lib]
+name = "_rust"
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+pyo3 = { version = "0.23.5", features = ["abi3-py310"] }
+numpy = "0.23.0"
+rayon = "1.10"
+
+[features]
+extension-module = ["pyo3/extension-module"]
