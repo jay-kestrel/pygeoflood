@@ -29,6 +29,28 @@ jobs:
           cargo +1.85.1 clippy --manifest-path rust/Cargo.toml --locked --all-targets -- -D warnings
           cargo +1.85.1 test --manifest-path rust/Cargo.toml --locked
 
+  cobol:
+    name: cobol (GnuCOBOL kernel parity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install GnuCOBOL 3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnucobol3
+      - name: Compile the COBOL backend
+        run: make -C cobol lib
+      - name: Install package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e . pytest
+      - name: COBOL parity matrix (through the real dispatch)
+        run: pytest tests/test_anisodiff_cobol.py -v
+
   packaging:
     runs-on: ubuntu-latest
     timeout-minutes: 20

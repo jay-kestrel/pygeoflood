@@ -18,7 +18,9 @@ on:
 jobs:
   equivalence:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # three full pipeline generations (reference determinism pair + the
+    # COBOL-backend row): budgeted above the two-run baseline
+    timeout-minutes: 45
     env:
       WBT_PATH: /opt/wbt/WhiteboxTools_linux_amd64/WBT
       NUMBA_NUM_THREADS: "1"
@@ -59,6 +61,14 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -c tests/golden/requirements-pins.txt -e . pytest
+
+      - name: Install GnuCOBOL 3 (COBOL-backend row)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnucobol3
+
+      - name: Compile the COBOL backend
+        run: make -C cobol lib
 
       - name: Run golden equivalence suite
         run: |

@@ -27,6 +27,14 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[bench]"
 
+      - name: Install GnuCOBOL 3 (COBOL backend rows)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnucobol3
+
+      - name: Compile the COBOL backend
+        run: make -C cobol lib
+
       - name: Schema unit tests
         run: pytest benchmarks/tests/ -v
 
