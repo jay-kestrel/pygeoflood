@@ -56,6 +56,7 @@ def test_bypassed_geodesic_path_is_documented_not_missing():
 def test_kernel_and_wbt_sets_match_the_six_kernels_and_six_wbt_calls():
     assert set(schema.KERNELS) == {
         "anisodiff",
+        "anisodiff_cobol",  # backend-tagged row (PYGEOFLOOD_COBOL=1)
         "get_fmm_points",
         "jit_binary_hand",
         "process_cells",

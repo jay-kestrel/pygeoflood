@@ -11,7 +11,7 @@ import warnings
 import xarray as xr
 import os
 
-from . import _rust
+from . import _cobol, _rust
 from functools import wraps
 from operator import index
 from importlib import resources
@@ -660,6 +660,10 @@ def anisodiff(
         np.result_type(np.dtype("float32"), value).itemsize > 4
         for value in (kappa, step[0], step[1], gamma)
     )
+    if _cobol.enabled():
+        return _cobol.anisodiff(
+            image, iterations, kappa, gamma, step, option, precision
+        )
     return _rust.anisodiff(
         image, iterations, kappa, gamma, step, option, precision=precision
     )

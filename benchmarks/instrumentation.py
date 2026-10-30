@@ -11,6 +11,7 @@ byte-identical to what upstream ships. All wrappers are installed by
 from __future__ import annotations
 
 import functools
+import os
 import time
 from typing import Any, Callable
 
@@ -21,6 +22,15 @@ import rasterio
 from pygeoflood import tools as pgf_tools
 
 from .schema import IO_KINDS, KERNELS, STAGES, WBT_TOOLS
+
+
+def _kernel_label(kernel: str) -> str:
+    """Recorded name for a timed kernel: backend-tagged when the COBOL
+    dispatch is active, so result rows never misattribute the backend
+    that produced them."""
+    if kernel == "anisodiff" and os.environ.get("PYGEOFLOOD_COBOL") == "1":
+        return "anisodiff_cobol"
+    return kernel
 
 
 class _TimedWBT:
@@ -227,7 +237,7 @@ class PipelineProbe:
             try:
                 return original(*args, **kwargs)
             finally:
-                probe.record_kernel(kernel, time.perf_counter() - start)
+                probe.record_kernel(_kernel_label(kernel), time.perf_counter() - start)
 
         setattr(pgf_tools, kernel, timed_kernel)
         self._undo.append(

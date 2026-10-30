@@ -55,6 +55,9 @@ BYPASSED_STAGES = [
 # kernel time from glue and I/O.
 KERNELS = [
     "anisodiff",
+    # Backend-tagged COBOL row: recorded instead of "anisodiff" when the
+    # PYGEOFLOOD_COBOL dispatch is active (spec D1, art_QEojt4gd).
+    "anisodiff_cobol",
     "get_fmm_points",
     "jit_binary_hand",
     "process_cells",
@@ -134,7 +137,12 @@ REQUIRED_CROP_KEYS = ("origin_row", "origin_col", "height", "width")
 PROFILE_FULL = "full"
 PROFILE_CROP = "crop"
 CROP_SIZE = 2000
-PROFILES = (PROFILE_CROP, PROFILE_FULL)
+# Reduced profile for the COBOL anisodiff backend: GnuCOBOL 3.2 lowers
+# arithmetic verbs to decimal runtime calls, so the same canonical
+# workload needs a much smaller window to finish inside a CI budget.
+PROFILE_COBOL = "crop500"
+COBOL_CROP_SIZE = 500
+PROFILES = (PROFILE_CROP, PROFILE_FULL, PROFILE_COBOL)
 
 
 def validate_result(result: dict) -> list[str]:

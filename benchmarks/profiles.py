@@ -17,7 +17,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from .schema import CROP_SIZE, PROFILE_CROP, PROFILE_FULL
+from .schema import (
+    COBOL_CROP_SIZE,
+    CROP_SIZE,
+    PROFILE_COBOL,
+    PROFILE_CROP,
+    PROFILE_FULL,
+)
 
 # In-repo input bundle (committed at 3650c9b).
 INPUTS_DIR = Path("tests") / "test_data" / "OC1mTest_inputs"
@@ -76,6 +82,14 @@ def prepare_profile(
             flowline_src=flowline_src,
             catchment_src=catchment_src,
         )
+    if profile == PROFILE_COBOL:
+        return _prepare_crop(
+            profile_dir=profile_dir,
+            dem_src=dem_src,
+            flowline_src=flowline_src,
+            catchment_src=catchment_src,
+            size=COBOL_CROP_SIZE,
+        )
     raise ValueError(f"unknown profile: {profile!r}")
 
 
@@ -84,17 +98,18 @@ def _prepare_crop(
     dem_src: Path,
     flowline_src: Path,
     catchment_src: Path,
+    *,
+    size: int = CROP_SIZE,
 ) -> PreparedProfile:
     import rasterio
     from rasterio.windows import Window
 
-    dem_path = profile_dir / f"{CROP_STEM}.tif"
+    stem = f"OC1mTest_crop{size}"
+    dem_path = profile_dir / f"{stem}.tif"
     with rasterio.open(dem_src) as src:
-        height, width = src.height, src.width
-        transform = src.transform
         profile = src.profile
 
-    crop = _compute_crop_window(dem_src, flowline_src, CROP_SIZE)
+    crop = _compute_crop_window(dem_src, flowline_src, size)
     window = Window(
         col_off=crop["origin_col"],
         row_off=crop["origin_row"],
@@ -119,14 +134,14 @@ def _prepare_crop(
 
     flowline = _clip_flowline(
         flowline_src,
-        profile_dir / f"{CROP_STEM}_flowline.shp",
+        profile_dir / f"{stem}_flowline.shp",
         dem_path,
     )
     crop["flowline_original_vertices"] = flowline["original_vertices"]
     crop["flowline_clipped_vertices"] = flowline["vertices"]
 
     return PreparedProfile(
-        profile=PROFILE_CROP,
+        profile=profile_dir.name,
         dem_path=dem_path,
         flowline_path=flowline["path"],
         catchment_path=catchment_src,

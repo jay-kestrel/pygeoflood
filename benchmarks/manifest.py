@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import platform
+import re
 import subprocess
 import sys
 from importlib import metadata
@@ -140,6 +141,23 @@ def wbt_max_procs() -> int | str:
         return f"unavailable: {error}"
 
 
+def gnucobol_version() -> str | None:
+    """GnuCOBOL compiler version from `cobc --version`, or None when the
+    compiler is not installed (probed like wbt_versions: absence is a
+    manifest fact, never an error)."""
+    try:
+        output = subprocess.run(
+            ["cobc", "--version"],
+            capture_output=True,
+            text=True,
+            check=True,
+        ).stdout
+    except (OSError, subprocess.CalledProcessError):
+        return None
+    match = re.search(r"(\d+\.\d+\.\d+)", output)
+    return match.group(1) if match else None
+
+
 def package_versions() -> dict[str, str | None]:
     versions: dict[str, str | None] = {}
     for name in PACKAGES:
@@ -196,6 +214,13 @@ def collect_manifest(dem_path: Path, repo_root: Path, crop: dict | None) -> dict
         "ram_total_bytes": total_ram_bytes(),
         **threads,
         **wbt_versions(),
+        # Which backend produced the anisodiff kernel rows in this run,
+        # plus the COBOL toolchain version when installed. Optional keys
+        # (schema allows extras) so baselines stay valid.
+        "implementation": (
+            "cobol" if os.environ.get("PYGEOFLOOD_COBOL") == "1" else "rust"
+        ),
+        "gnucobol_version": gnucobol_version(),
         "packages": package_versions(),
         "git_commit": git_commit(repo_root),
         "dem_sha256": sha256_file(dem_path),

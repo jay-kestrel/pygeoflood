@@ -10,24 +10,66 @@ on:
 permissions:
   contents: read
 
+# Actions-free workflow: the repository policy accepts Actions components
+# from jay-kestrel-owned repositories only, so checkout runs inline with
+# the workflow token and Python environments come from the runner
+# interpreter or uv-managed interpreters.
 jobs:
   rust:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Check out
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global init.defaultBranch main
+          git init -q .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git checkout -q FETCH_HEAD
       - name: Install Rust toolchain
         run: rustup toolchain install 1.85.1 --profile minimal --component rustfmt --component clippy
       - name: Format, lint, and unit tests
         env:
-          PYO3_PYTHON: python
+          PYO3_PYTHON: python3
         run: |
           cargo +1.85.1 fmt --manifest-path rust/Cargo.toml --check
           cargo +1.85.1 clippy --manifest-path rust/Cargo.toml --locked --all-targets -- -D warnings
           cargo +1.85.1 test --manifest-path rust/Cargo.toml --locked
+
+  cobol:
+    name: cobol (GnuCOBOL kernel parity)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
+    steps:
+      - name: Check out
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global init.defaultBranch main
+          git init -q .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git checkout -q FETCH_HEAD
+      - name: Create Python environment
+        run: |
+          python3 -m venv "$VIRTUAL_ENV"
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
+      - name: Install GnuCOBOL 3
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gnucobol3
+      - name: Compile the COBOL backend
+        run: make -C cobol lib
+      - name: Install package
+        run: |
+          pip install --upgrade pip
+          pip install -e . pytest
+      - name: COBOL parity matrix (through the real dispatch)
+        run: pytest tests/test_anisodiff_cobol.py -v
 
   packaging:
     runs-on: ubuntu-latest
@@ -36,18 +78,31 @@ jobs:
       fail-fast: false
       matrix:
         python: ["3.10", "3.11", "3.12"]
+    env:
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python }}
+      - name: Check out
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global init.defaultBranch main
+          git init -q .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git checkout -q FETCH_HEAD
+      - name: Install uv
+        run: python3 -m pip install --user uv
+      - name: Create Python ${{ matrix.python }} environment
+        run: |
+          uv venv --seed --python "${{ matrix.python }}" "$VIRTUAL_ENV"
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
       - name: Install Rust toolchain
         run: |
           rustup toolchain install 1.85.1 --profile minimal
           rustup default 1.85.1
       - name: Editable install and numerical parity
         run: |
-          python -m pip install --upgrade pip
+          pip install --upgrade pip
           pip install -e . pytest 'maturin>=1.8,<2'
           pytest tests/test_anisodiff.py tests/test_process_cells.py tests/test_process_cells_determinism.py -q
       - name: Build abi3 wheel and source distribution

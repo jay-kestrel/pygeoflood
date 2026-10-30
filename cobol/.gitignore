@@ -1,0 +1,4 @@
+# cobc -C build intermediates
+anisodiff.c
+anisodiff.c.h
+anisodiff.c.l.h
