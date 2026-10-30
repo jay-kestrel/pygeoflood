@@ -14,16 +14,33 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Actions-free workflow: the repository policy accepts Actions components
+# from jay-kestrel-owned repositories only, so checkout runs inline with
+# the workflow token and the Python environment comes from the runner
+# interpreter (ubuntu-latest ships 3.12). WhiteboxTools is downloaded each
+# run instead of cached (same pinned archive, small download).
 jobs:
   process-cells-determinism:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global init.defaultBranch main
+          git init -q .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git checkout -q FETCH_HEAD
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
+      - name: Create Python environment
+        run: |
+          python3 --version
+          python3 -m venv "$VIRTUAL_ENV"
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
 
       - name: Install Rust toolchain
         run: |
@@ -45,28 +62,31 @@ jobs:
       WBT_PATH: /opt/wbt/WhiteboxTools_linux_amd64/WBT
       NUMBA_NUM_THREADS: "1"
       OMP_NUM_THREADS: "1"
+      VIRTUAL_ENV: ${{ github.workspace }}/.venv
     steps:
-      - uses: actions/checkout@v4
+      - name: Check out
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config --global init.defaultBranch main
+          git init -q .
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}.git"
+          git fetch -q --depth=1 origin "${{ github.ref }}"
+          git checkout -q FETCH_HEAD
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Cache WhiteboxTools v2.4.0
-        id: wbt-cache
-        uses: actions/cache@v4
-        with:
-          path: /opt/wbt
-          key: wbt-v2.4.0-linux-x86_64
+      - name: Create Python environment
+        run: |
+          python3 --version
+          python3 -m venv "$VIRTUAL_ENV"
+          echo "$VIRTUAL_ENV/bin" >> "$GITHUB_PATH"
 
       - name: Download WhiteboxTools v2.4.0
-        if: steps.wbt-cache.outputs.cache-hit != 'true'
         run: |
           mkdir -p /opt/wbt
           curl -sL --retry 3 \
             https://www.whiteboxgeo.com/WBT_Linux/WhiteboxTools_linux_amd64.zip \
             -o /tmp/wbt.zip
-          unzip -q /tmp/wbt.zip -d /opt/wbt
+          unzip -q -o /tmp/wbt.zip -d /opt/wbt
 
       - name: Verify pinned WhiteboxTools version
         run: |
